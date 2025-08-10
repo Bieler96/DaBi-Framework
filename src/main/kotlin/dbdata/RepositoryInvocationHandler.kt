@@ -94,9 +94,18 @@ class RepositoryInvocationHandler<T : Entity<ID>, ID>(
 			QueryType.CUSTOM -> {
 				val queryAnnotation = method.getAnnotation(Query::class.java)
 				if (queryAnnotation != null) {
-					val paramMap = parameters.mapIndexed { index, value ->
-						"param$index" to value
-					}.toMap()
+					val actualParameters = if (method.parameters.isNotEmpty() && method.parameters.last().type == Continuation::class.java) {
+						parameters.dropLast(1)
+					} else {
+						parameters.toList()
+					}
+
+					// Get parameter names from the method
+					val parameterNames = method.parameters.filter { it.type != Continuation::class.java }.map { it.name }
+
+					// Construct the paramMap using actual parameter names and values
+					val paramMap = parameterNames.zip(actualParameters).toMap()
+
 					dataProvider.executeCustomQuery(queryAnnotation.value, paramMap)
 				} else {
 					throw UnsupportedOperationException("Custom method without @Query annotation: ${method.name}")

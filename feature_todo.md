@@ -29,7 +29,7 @@ This document outlines potential feature enhancements for the `dbdata` module, b
 *   **Complex Joins:**
     *   Enhance `ExposedDataProvider` to handle more complex join scenarios, including explicit join conditions and multiple joins in a single query.
 
-## 3. Custom Query Implementation (`@Query` Annotation)
+## 3. Custom Query Implementation (`@Query` Annotation) (DONE)
 
 *   **ExposedDataProvider Custom Queries:**
     *   Implement the `executeCustomQuery` method in `ExposedDataProvider` to allow raw SQL queries.

@@ -15,6 +15,7 @@ import java.time.ZoneOffset
 import org.jetbrains.exposed.v1.core.Join
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
+import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.between
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.eq
@@ -172,12 +173,29 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 			table.selectAll().where { column eq value }.limit(1).count() > 0
 		}
 
-	override suspend fun executeCustomQuery(query: String, params: Map<String, Any>): List<T> =
-		newSuspendedTransaction(db = database) {
-			// Custom SQL execution would require additional SQL parsing and execution
-			// This is a placeholder for custom raw SQL queries
-			emptyList()
-		}
+    override suspend fun executeCustomQuery(query: String, params: Map<String, Any>): List<T> =
+        newSuspendedTransaction(db = database) {
+            val results = mutableListOf<T>()
+            var processedQuery = query
+
+            // Manually substitute parameters into the query string
+            // WARNING: This approach is vulnerable to SQL injection if parameter values are not properly sanitized.
+            // For production code, use prepared statements with proper parameter binding.
+            params.forEach { (key, value) ->
+                processedQuery = processedQuery.replace(":$key", value.toString())
+            }
+
+            exec(processedQuery) { rs ->
+                while (rs.next()) {
+                    val valuesByColumn: Map<Column<*>, Any?> = table.columns.associateWith { col -> rs.getObject(col.name) }
+                    val exprValues: Map<org.jetbrains.exposed.v1.core.Expression<*>, Any?> =
+                        valuesByColumn.mapKeys { (col, _) -> col as org.jetbrains.exposed.v1.core.Expression<*> }
+                    val row = ResultRow.createAndFillValues(exprValues)
+                    results.add(mapRowToEntity(row))
+                }
+            }
+            results
+        }
 
 	// ============= NEW ADVANCED QUERY METHODS =============
 

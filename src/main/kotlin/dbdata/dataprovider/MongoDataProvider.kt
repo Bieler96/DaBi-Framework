@@ -125,9 +125,8 @@ class MongoDataProvider<T : Entity<String>>(
 	}
 
 	override suspend fun executeCustomQuery(query: String, params: Map<String, Any>): List<T> {
-		// MongoDB Query Ausführung basierend auf Query String
-		// Du könntest hier eine DSL implementieren oder JSON Queries verwenden
-		return emptyList()
+		val filterDocument = Document.parse(query)
+		return collection.find(filterDocument).toList()
 	}
 
 	override suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): List<T> {
