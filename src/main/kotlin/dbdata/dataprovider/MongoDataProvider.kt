@@ -3,27 +3,40 @@ package dbdata.dataprovider
 
 import com.mongodb.kotlin.client.coroutine.MongoCollection
 import dbdata.Entity
+import dbdata.Auditable
 import dbdata.query.QueryOperator
 import dbdata.query.QuerySpec
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
+import java.time.LocalDateTime
+import org.bson.Document
+import com.mongodb.client.model.Updates
 
 class MongoDataProvider<T : Entity<String>>(
 	private val collection: MongoCollection<T>,
 	private val entityClass: kotlin.reflect.KClass<T>
 ): DataProvider<T, String>() {
 	override suspend fun save(entity: T): T {
-		return if (entity.id == null) {
+		val now = LocalDateTime.now()
+		val currentUser = "system" // TODO: Replace with actual user from context
+
+		if (entity.id == null) {
 			// Insert new entity
+			(entity as Auditable).createdAt = now
+			(entity as Auditable).updatedAt = now
+			(entity as Auditable).createdBy = currentUser
+			(entity as Auditable).updatedBy = currentUser
 			collection.insertOne(entity)
-			entity
+			return entity
 		} else {
 			// Update existing
+			(entity as Auditable).updatedAt = now
+			(entity as Auditable).updatedBy = currentUser
 			collection.replaceOne(
 				org.bson.Document("_id", entity.id),
 				entity
 			)
-			entity
+			return entity
 		}
 	}
 

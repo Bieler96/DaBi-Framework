@@ -4,19 +4,28 @@ import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.time.LocalDateTime
 
 data class User(
 	override val id: Long? = null,
 	val name: String,
 	val email: String,
-	val age: Int
+	val age: Int,
+	override var createdAt: LocalDateTime? = null,
+	override var updatedAt: LocalDateTime? = null,
+	override var createdBy: String? = null,
+	override var updatedBy: String? = null
 ) : Entity<Long>
 
 data class Post(
 	override val id: Long? = null,
 	val title: String,
 	val content: String,
-	val userId: Long // Foreign key to User
+	val userId: Long,
+	override var createdAt: LocalDateTime? = null,
+	override var updatedAt: LocalDateTime? = null,
+	override var createdBy: String? = null,
+	override var updatedBy: String? = null
 ) : Entity<Long>
 
 @Repository
@@ -61,6 +70,10 @@ object UsersTable : Table("users") {
 	val name = varchar("name", 100)
 	val email = varchar("email", 200)
 	val age = integer("age")
+			val createdAt = long("created_at").nullable()
+	val updatedAt = long("updated_at").nullable()
+	val createdBy = varchar("created_by", 255).nullable()
+	val updatedBy = varchar("updated_by", 255).nullable()
 
 	override val primaryKey = PrimaryKey(id)
 }
@@ -70,6 +83,10 @@ object PostsTable : Table("posts") {
 	val title = varchar("title", 255)
 	val content = text("content")
 	val userId = long("user_id").references(UsersTable.id)
+			val createdAt = long("created_at").nullable()
+	val updatedAt = long("updated_at").nullable()
+	val createdBy = varchar("created_by", 255).nullable()
+	val updatedBy = varchar("updated_by", 255).nullable()
 	override val primaryKey = PrimaryKey(id)
 }
 

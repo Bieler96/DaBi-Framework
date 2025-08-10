@@ -1,11 +1,14 @@
 package dbdata.dataprovider
 
 import dbdata.Entity
+import dbdata.Auditable
 import dbdata.query.LogicalOperator
 import dbdata.query.QueryOperator
 import dbdata.query.QuerySpec
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.ColumnSet
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import org.jetbrains.exposed.v1.core.Join
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
@@ -51,16 +54,25 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	}
 
 	override suspend fun save(entity: T): T = newSuspendedTransaction(db = database) {
+		val now = LocalDateTime.now()
+		val currentUser = "system" // TODO: Replace with actual user from context
+
 		if (entity.id == null) {
 			// Insert new entity
 			val insertStatement = table.insert {
+				(entity as Auditable).createdAt = now
+				(entity as Auditable).updatedAt = now
+				(entity as Auditable).createdBy = currentUser
+				(entity as Auditable).updatedBy = currentUser
 				fillStatementFromEntity(it, entity, excludeId = true)
 			}
-			// Return entity with generated ID
+			// Return entity with generated ID and populated audit fields
 			val generatedId = insertStatement[idColumn]
 			setEntityId(entity, generatedId)
 		} else {
 			// Update existing entity
+			(entity as Auditable).updatedAt = now
+			(entity as Auditable).updatedBy = currentUser
 			table.update({ idColumn eq entity.id!! }) {
 				fillStatementFromEntity(it, entity, excludeId = true)
 			}
@@ -314,6 +326,9 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 			when (paramName) {
 				"id" -> row[idColumn]
+				"createdAt", "updatedAt" -> row[getColumnByName(paramName, propertyToColumnMap)].let { 
+					if (it is Long) LocalDateTime.ofEpochSecond(it, 0, ZoneOffset.UTC) else it
+				}
 				else -> {
 					val column = getColumnByName(paramName, propertyToColumnMap)
 					row[column]
@@ -347,6 +362,11 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	}
 
 	private fun fillStatementFromEntity(statement: UpdateBuilder<*>, entity: T, excludeId: Boolean = false) {
+		val now = LocalDateTime.now()
+		val currentUser = "system" // TODO: Replace with actual user from context
+
+		val isInsert = entity.id == null
+
 		entityClass.memberProperties.forEach { prop ->
 			if (excludeId && prop.name == "id") return@forEach
 
@@ -354,8 +374,13 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 			prop.isAccessible = true
 			val value = prop.get(entity)
 
-			@Suppress("UNCHECKED_CAST")
-			statement[column as Column<Any?>] = value
+			when (prop.name) {
+				"createdAt" -> if (isInsert) statement[column as Column<Long>] = now.toEpochSecond(ZoneOffset.UTC) else return@forEach
+				"updatedAt" -> statement[column as Column<Long>] = now.toEpochSecond(ZoneOffset.UTC)
+				"createdBy" -> if (isInsert) statement[column as Column<String>] = currentUser else return@forEach
+				"updatedBy" -> statement[column as Column<String>] = currentUser
+				else -> statement[column as Column<Any?>] = value
+			}
 		}
 	}
 

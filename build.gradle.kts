@@ -19,6 +19,7 @@ dependencies {
 	// exposed
 	implementation("org.jetbrains.exposed:exposed-core:1.0.0-beta-5")
 	implementation("org.jetbrains.exposed:exposed-jdbc:1.0.0-beta-5")
+	implementation("org.jetbrains.exposed:exposed-java-time:1.0.0-beta-5")
 	implementation("com.h2database:h2:2.2.224")
 
 	// mongodb
