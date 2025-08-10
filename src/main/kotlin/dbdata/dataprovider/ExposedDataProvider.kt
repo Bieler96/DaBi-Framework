@@ -3,6 +3,9 @@ package dbdata.dataprovider
 import dbdata.Entity
 import dbdata.Auditable
 import dbdata.query.LogicalOperator
+import dbdata.query.Pageable
+import dbdata.query.Sort
+import org.jetbrains.exposed.v1.core.SortOrder
 import dbdata.query.QueryOperator
 import dbdata.query.QuerySpec
 import org.jetbrains.exposed.v1.core.Column
@@ -29,6 +32,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -96,6 +100,19 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 	override suspend fun findAll(): List<T> = newSuspendedTransaction(db = database) {
 		table.selectAll().map { mapRowToEntity(it) }
+	}
+
+	override suspend fun findAll(pageable: Pageable): List<T> = newSuspendedTransaction(db = database) {
+		var query = table.selectAll()
+		pageable.sort?.let { sort ->
+			query = applySort(query, sort)
+		}
+		query.limit(pageable.pageSize).offset(pageable.offset).map { mapRowToEntity(it) }
+	}
+
+	override suspend fun findAll(sort: Sort): List<T> = newSuspendedTransaction(db = database) {
+		val query = table.selectAll()
+		applySort(query, sort).map { mapRowToEntity(it) }
 	}
 
 	override suspend fun deleteById(id: ID): Long = newSuspendedTransaction(db = database) {
@@ -399,5 +416,13 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		}
 
 		return constructor.callBy(args)
+	}
+
+	private fun applySort(query: Query, sort: Sort): Query {
+		sort.orders.forEach { order ->
+			val column = getColumnByName(order.property, propertyToColumnMap)
+			query.orderBy(column, if (order.direction == Sort.Direction.ASC) org.jetbrains.exposed.v1.core.SortOrder.ASC else org.jetbrains.exposed.v1.core.SortOrder.DESC)
+		}
+		return query
 	}
 }

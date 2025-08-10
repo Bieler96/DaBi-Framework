@@ -1,11 +1,14 @@
 
 package dbdata.dataprovider
 
+import com.mongodb.kotlin.client.coroutine.FindFlow
 import com.mongodb.kotlin.client.coroutine.MongoCollection
 import dbdata.Entity
 import dbdata.Auditable
 import dbdata.query.QueryOperator
 import dbdata.query.QuerySpec
+import dbdata.query.Pageable
+import dbdata.query.Sort
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
 import java.time.LocalDateTime
@@ -54,6 +57,20 @@ class MongoDataProvider<T : Entity<String>>(
 
 	override suspend fun findAll(): List<T> {
 		return collection.find().toList()
+	}
+
+	override suspend fun findAll(pageable: Pageable): List<T> {
+		var findFlow = collection.find()
+		pageable.sort?.let { sort ->
+			findFlow = applySort(findFlow, sort)
+		}
+		return findFlow.skip(pageable.offset.toInt()).limit(pageable.pageSize).toList()
+	}
+
+	override suspend fun findAll(sort: Sort): List<T> {
+		var findFlow = collection.find()
+		findFlow = applySort(findFlow, sort)
+		return findFlow.toList()
 	}
 
 	override suspend fun deleteById(id: String): Long {
@@ -144,5 +161,13 @@ class MongoDataProvider<T : Entity<String>>(
 			return existsByProperty(querySpec.conditions[0].property, parameters[0])
 		}
 		return false
+	}
+
+	private fun applySort(findFlow: FindFlow<T>, sort: Sort): FindFlow<T> {
+		val sortDocument = org.bson.Document()
+		sort.orders.forEach { order ->
+			sortDocument[order.property] = if (order.direction == Sort.Direction.ASC) 1 else -1
+		}
+		return findFlow.sort(sortDocument)
 	}
 }

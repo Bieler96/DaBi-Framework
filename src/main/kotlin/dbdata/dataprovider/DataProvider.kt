@@ -2,12 +2,16 @@ package dbdata.dataprovider
 
 import dbdata.Entity
 import dbdata.query.QuerySpec
+import dbdata.query.Pageable
+import dbdata.query.Sort
 
 abstract class DataProvider<T : Entity<ID>, ID> {
 	abstract suspend fun save(entity: T): T
 	abstract suspend fun saveAll(entities: Iterable<T>): List<T>
 	abstract suspend fun findById(id: ID): T?
 	abstract suspend fun findAll(): List<T>
+	abstract suspend fun findAll(pageable: Pageable): List<T>
+	abstract suspend fun findAll(sort: Sort): List<T>
 	abstract suspend fun deleteById(id: ID): Long
 	abstract suspend fun delete(entity: T): Long
 	abstract suspend fun deleteAllInBatch(entities: Iterable<T>): Long

@@ -5,6 +5,8 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.time.LocalDateTime
+import dbdata.query.PageRequest
+import dbdata.query.Sort
 
 data class User(
 	override val id: Long? = null,
@@ -157,6 +159,28 @@ suspend fun main() {
 	// Demonstrate finding all posts
 	val allPosts = postRepository.findAll()
 	println("All Posts: $allPosts")
+
+	// Demonstrate pagination
+	println("""
+--- Paginated Users (Page 0, Size 2) ---""")
+	val page0 = userRepository.findAll(PageRequest(pageNumber = 0, pageSize = 2))
+	println("Page 0: $page0")
+
+	println("""
+--- Paginated Users (Page 1, Size 2) ---""")
+	val page1 = userRepository.findAll(PageRequest(pageNumber = 1, pageSize = 2))
+	println("Page 1: $page1")
+
+	// Demonstrate sorting
+	println("""
+--- Users sorted by Name ASC ---""")
+	val sortedByNameAsc = userRepository.findAll(Sort(property = "name", direction = Sort.Direction.ASC))
+	println("Sorted by Name ASC: $sortedByNameAsc")
+
+	println("""
+--- Users sorted by Age DESC ---""")
+	val sortedByAgeDesc = userRepository.findAll(Sort(property = "age", direction = Sort.Direction.DESC))
+	println("Sorted by Age DESC: $sortedByAgeDesc")
 
 	// Example of a query that *would* require joins if implemented
 	// suspend fun findPostsByUserEmail(email: String): List<Post>

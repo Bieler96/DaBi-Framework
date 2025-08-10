@@ -37,7 +37,7 @@ This document outlines potential feature enhancements for the `dbdata` module, b
 *   **MongoDataProvider Custom Queries:**
     *   Implement the `executeCustomQuery` method in `MongoDataProvider` for raw MongoDB queries (e.g., using JSON query strings or a custom DSL).
 
-## 4. Pagination and Sorting API
+## 4. Pagination and Sorting API (DONE)
 
 *   **Structured Parameters:**
     *   Introduce dedicated `Pageable` and `Sort` objects that can be passed as parameters to repository methods (e.g., `findAll(pageable: Pageable)`, `findByName(name: String, sort: Sort)`).

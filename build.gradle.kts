@@ -1,5 +1,10 @@
 plugins {
 	kotlin("jvm") version "2.2.0"
+	application
+}
+
+application {
+	mainClass.set("dbdata.MainKt")
 }
 
 group = "de.bieler.dabiframework"
@@ -25,6 +30,7 @@ dependencies {
 	// mongodb
 	implementation(platform("org.mongodb:mongodb-driver-bom:5.5.1"))
 	implementation("org.mongodb:mongodb-driver-kotlin-coroutine")
+	implementation("org.mongodb:mongodb-driver-kotlin-sync")
 	implementation("org.mongodb:bson-kotlinx")
 }
 

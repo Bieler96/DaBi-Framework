@@ -4,9 +4,12 @@ import dbdata.dataprovider.DataProvider
 import dbdata.query.QueryInfo
 import dbdata.query.QueryMethodParser
 import dbdata.query.QueryType
+import dbdata.query.Pageable
+import dbdata.query.Sort
 import kotlinx.coroutines.runBlocking
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
+import kotlin.coroutines.Continuation
 import kotlin.reflect.jvm.kotlinFunction
 
 class RepositoryInvocationHandler<T : Entity<ID>, ID>(
@@ -33,7 +36,18 @@ class RepositoryInvocationHandler<T : Entity<ID>, ID>(
 				"save" -> dataProvider.save(parameters[0] as T)
 				"saveAll" -> dataProvider.saveAll(parameters[0] as Iterable<T>)
 				"findById" -> dataProvider.findById(parameters[0] as ID)
-				"findAll" -> dataProvider.findAll()
+				"findAll" -> {
+					val userArgs = parameters.filterNot { it is Continuation<*> }
+					if (userArgs.isEmpty()) {
+						dataProvider.findAll()
+					} else if (userArgs.size == 1 && userArgs[0] is Pageable) {
+						dataProvider.findAll(userArgs[0] as Pageable)
+					} else if (userArgs.size == 1 && userArgs[0] is Sort) {
+						dataProvider.findAll(userArgs[0] as Sort)
+					} else {
+						throw IllegalArgumentException("Unsupported argument for findAll method")
+					}
+				}
 				"deleteById" -> dataProvider.deleteById(parameters[0] as ID)
 				"delete" -> dataProvider.delete(parameters[0] as T)
 				"deleteAll" -> dataProvider.deleteAll()
