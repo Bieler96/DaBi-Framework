@@ -1,6 +1,6 @@
-package de.bieler.dabilogger.core.appender
+package logging.appender
 
-import de.bieler.dabilogger.core.LogLevel
+import logging.LogLevel
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest

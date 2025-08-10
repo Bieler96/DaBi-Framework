@@ -1,6 +1,6 @@
-package de.bieler.dabilogger.core
+package logging
 
-import de.bieler.dabilogger.core.appender.Appender
+import logging.appender.Appender
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue

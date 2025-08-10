@@ -1,6 +1,6 @@
-package de.bieler.dabilogger.core.appender
+package logging.appender
 
-import de.bieler.dabilogger.core.LogLevel
+import logging.LogLevel
 
 interface Appender {
 	fun append(level: LogLevel, tag: String, message: String, throwable: Throwable? = null)

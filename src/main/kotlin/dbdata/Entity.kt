@@ -1,5 +1,5 @@
 package dbdata
 
-interface Enity<ID> {
+interface Entity<ID> {
 	val id: ID?
 }

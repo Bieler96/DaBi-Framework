@@ -1,4 +1,4 @@
-package de.bieler.dabilogger.core
+package logging
 
 data class LoggerConfig(
 	val minLogLevel: LogLevel = LogLevel.INFO,

@@ -1,6 +1,6 @@
 package validation.schema.feature
 
-import validation.schema.core.Schema
+import validation.schema.dsl.Schema
 
 class StringBoolean : Schema<Boolean> {
 	private var truthyList = listOf(

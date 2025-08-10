@@ -1,4 +1,135 @@
+
 package dbdata.dataprovider
 
-class MongoDataProvider {
+import com.mongodb.kotlin.client.coroutine.MongoCollection
+import dbdata.Entity
+import dbdata.query.QueryOperator
+import dbdata.query.QuerySpec
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.toList
+
+class MongoDataProvider<T : Entity<String>>(
+	private val collection: MongoCollection<T>,
+	private val entityClass: kotlin.reflect.KClass<T>
+): DataProvider<T, String>() {
+	override suspend fun save(entity: T): T {
+		return if (entity.id == null) {
+			// Insert new entity
+			collection.insertOne(entity)
+			entity
+		} else {
+			// Update existing
+			collection.replaceOne(
+				org.bson.Document("_id", entity.id),
+				entity
+			)
+			entity
+		}
+	}
+
+	override suspend fun saveAll(entities: Iterable<T>): List<T> {
+		val saved = mutableListOf<T>()
+		for (entity in entities) {
+			saved.add(save(entity))
+		}
+		return saved
+	}
+
+	override suspend fun findById(id: String): T? {
+		return collection.find(org.bson.Document("_id", id)).firstOrNull()
+	}
+
+	override suspend fun findAll(): List<T> {
+		return collection.find().toList()
+	}
+
+	override suspend fun deleteById(id: String): Long {
+		val result = collection.deleteOne(org.bson.Document("_id", id))
+		return result.deletedCount
+	}
+
+	override suspend fun delete(entity: T): Long {
+		if (entity.id != null) {
+			val result = collection.deleteOne(org.bson.Document("_id", entity.id))
+			return result.deletedCount
+		}
+		return 0L
+	}
+
+	override suspend fun deleteAllInBatch(entities: Iterable<T>): Long {
+		val ids = entities.mapNotNull { it.id }
+		if (ids.isEmpty()) {
+			return 0L
+		}
+		val result = collection.deleteMany(org.bson.Document("_id", org.bson.Document("\$in", ids)))
+		return result.deletedCount
+	}
+
+	override suspend fun deleteAll(): Long {
+		val result = collection.deleteMany(org.bson.Document())
+		return result.deletedCount
+	}
+
+	override suspend fun count(): Long {
+		return collection.countDocuments()
+	}
+
+	override suspend fun findByProperty(property: String, value: Any): List<T> {
+		return collection.find(org.bson.Document(property, value)).toList()
+	}
+
+	override suspend fun countByProperty(property: String, value: Any): Long {
+		return collection.countDocuments(org.bson.Document(property, value))
+	}
+
+	override suspend fun deleteByProperty(property: String, value: Any): Long {
+		val result = collection.deleteMany(org.bson.Document(property, value))
+		return result.deletedCount
+	}
+
+	override suspend fun existsByProperty(property: String, value: Any): Boolean {
+		return collection.countDocuments(
+			org.bson.Document(property, value),
+			com.mongodb.client.model.CountOptions().limit(1)
+		) > 0
+	}
+
+	override suspend fun executeCustomQuery(query: String, params: Map<String, Any>): List<T> {
+		// MongoDB Query Ausführung basierend auf Query String
+		// Du könntest hier eine DSL implementieren oder JSON Queries verwenden
+		return emptyList()
+	}
+
+	override suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): List<T> {
+		// TODO: Implement advanced MongoDB queries
+		// For now, fallback to simple implementation
+		if (querySpec.conditions.size == 1 && querySpec.conditions[0].operator == QueryOperator.EQUALS) {
+			return findByProperty(querySpec.conditions[0].property, parameters[0])
+		}
+		return emptyList()
+	}
+
+	override suspend fun countByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long {
+		// TODO: Implement advanced MongoDB queries
+		if (querySpec.conditions.size == 1 && querySpec.conditions[0].operator == QueryOperator.EQUALS) {
+			return countByProperty(querySpec.conditions[0].property, parameters[0])
+		}
+		return 0
+	}
+
+	override suspend fun deleteByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long {
+		// TODO: Implement advanced MongoDB queries
+		if (querySpec.conditions.size == 1 && querySpec.conditions[0].operator == QueryOperator.EQUALS) {
+			return deleteByProperty(querySpec.conditions[0].property, parameters[0])
+		}
+		return 0
+	}
+
+	override suspend fun existsByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Boolean {
+		// TODO: Implement advanced MongoDB queries
+		if (querySpec.conditions.size == 1 && querySpec.conditions[0].operator == QueryOperator.EQUALS) {
+			return existsByProperty(querySpec.conditions[0].property, parameters[0])
+		}
+		return false
+	}
 }

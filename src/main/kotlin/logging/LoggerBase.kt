@@ -1,4 +1,4 @@
-package de.bieler.dabilogger.core
+package logging
 
 enum class LogLevel {
 	VERBOSE,

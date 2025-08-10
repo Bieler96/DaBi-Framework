@@ -2,7 +2,7 @@ package validation.schema.feature
 
 import validation.error.CheckError
 import validation.error.TypeError
-import validation.schema.core.Schema
+import validation.schema.dsl.Schema
 
 class NumberSchema : Schema<Number> {
 	private val checks = mutableListOf<(Number) -> Unit>()

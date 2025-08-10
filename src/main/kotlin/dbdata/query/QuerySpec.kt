@@ -1,4 +1,6 @@
 package dbdata.query
 
-enum class QuerySpec {
-}
+data class QuerySpec(
+	val conditions: List<QueryCondition>,
+	val logicalOperator: LogicalOperator
+)

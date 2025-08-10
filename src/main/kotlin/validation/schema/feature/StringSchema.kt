@@ -2,7 +2,7 @@ package validation.schema.feature
 
 import validation.error.CheckError
 import validation.error.TypeError
-import validation.schema.core.Schema
+import validation.schema.dsl.Schema
 import java.net.MalformedURLException
 import java.net.URI
 import java.time.OffsetDateTime

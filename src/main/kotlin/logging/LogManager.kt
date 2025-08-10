@@ -1,15 +1,24 @@
-package de.bieler.dabilogger.core
+package logging
 
 import core.appender.JsonFileAppender
-import de.bieler.dabilogger.core.appender.Appender
-import de.bieler.dabilogger.core.appender.ConsoleAppender
-import de.bieler.dabilogger.core.appender.FileAppender
-import de.bieler.dabilogger.core.appender.HttpAppender
+import logging.appender.Appender
+import logging.appender.ConsoleAppender
+import logging.appender.FileAppender
+import logging.appender.HttpAppender
 import java.io.File
 
 object LogManager {
-	private lateinit var logger: Logger
-	private var isInitialized = false
+	internal lateinit var logger: Logger
+	internal var isInitialized = false
+
+	internal fun resetForTesting() {
+		isInitialized = false
+		// logger is lateinit, so we can't set it to null directly.
+		// If it was initialized, we should shut it down.
+		if (this::logger.isInitialized) {
+			logger.shutdown()
+		}
+	}
 
 	fun initialize(config: LoggerConfig) {
 		if (isInitialized) return

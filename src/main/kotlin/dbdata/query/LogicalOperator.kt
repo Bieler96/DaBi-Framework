@@ -1,3 +1,6 @@
 package dbdata.query
 
-data class LogicalOperator()
+enum class LogicalOperator {
+	AND,
+	OR
+}

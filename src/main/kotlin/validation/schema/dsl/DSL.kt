@@ -1,4 +1,4 @@
-package validation.schema.core
+package validation.schema.dsl
 
 import validation.schema.feature.ArraySchema
 import validation.schema.feature.BooleanSchema

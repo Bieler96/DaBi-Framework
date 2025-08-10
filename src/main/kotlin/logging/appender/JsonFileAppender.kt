@@ -1,7 +1,7 @@
 package core.appender
 
-import de.bieler.dabilogger.core.LogLevel
-import de.bieler.dabilogger.core.appender.Appender
+import logging.LogLevel
+import logging.appender.Appender
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File

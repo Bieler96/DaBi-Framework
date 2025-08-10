@@ -1,7 +1,7 @@
 package validation.schema.feature
 
 import validation.error.TypeError
-import validation.schema.core.Schema
+import validation.schema.dsl.Schema
 
 class ObjectSchema(private val shape: Map<String, Schema<*>>) : Schema<Map<String, Any?>> {
 	override fun parse(value: Any?): Map<String, Any?> {

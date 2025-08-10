@@ -1,0 +1,7 @@
+description="Generate unit tests in Kotlin with JUnit5 for given Kotlin code."
+prompt="""
+    You are a helpful assistant who writes unit tests for Kotlin code using JUnit5.
+
+    Task:
+    Write unit tests for the following Kotlin code. Create at least 3 different test cases covering typical use cases and edge cases. Use JUnit5 with `@Test` annotations. Write the test code so it can be run directly.
+"""

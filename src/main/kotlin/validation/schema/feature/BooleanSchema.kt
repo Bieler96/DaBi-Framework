@@ -1,7 +1,7 @@
 package validation.schema.feature
 
 import validation.error.TypeError
-import validation.schema.core.Schema
+import validation.schema.dsl.Schema
 
 class BooleanSchema : Schema<Boolean> {
 	private var isOptional = false
