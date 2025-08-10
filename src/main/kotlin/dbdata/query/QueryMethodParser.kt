@@ -121,9 +121,18 @@ class QueryMethodParser {
 	}
 
 	private fun extractPropertyName(suffix: String): String {
-		// Convert CamelCase to lowercase
-		// Email -> email, FirstName -> firstname
-		return suffix.replaceFirstChar { it.lowercase() }
+		// Convert CamelCase to lowercase and handle nested properties (e.g., UserName -> user.name, User_Name -> user.name)
+		val result = StringBuilder()
+		suffix.forEachIndexed { index, char ->
+			if (index == 0) {
+				result.append(char.lowercase())
+			} else if (char.isUpperCase()) {
+				result.append(".").append(char.lowercase())
+			} else {
+				result.append(char)
+			}
+		}
+		return result.toString().replace("_", ".")
 	}
 
 	fun shouldReturnSingle(methodName: String, returnType: KType?): Boolean {

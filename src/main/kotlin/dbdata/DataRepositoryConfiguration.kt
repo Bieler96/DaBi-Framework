@@ -11,6 +11,7 @@ import kotlin.reflect.KClass
 class DataRepositoryConfiguration {
 	private val repositories = mutableMapOf<KClass<*>, Any>()
 	private val proxyFactory = RepositoryProxyFactory()
+	private val allExposedTables = mutableListOf<Table>()
 
 	fun <T : Any, E : Entity<ID>, ID> registerExposedRepository(
 		repositoryClass: KClass<T>,
@@ -19,7 +20,8 @@ class DataRepositoryConfiguration {
 		idColumn: Column<ID>,
 		database: Database
 	) {
-		val dataProvider = ExposedDataProvider(table, entityClass, idColumn, database)
+		allExposedTables.add(table) // Add table to the list
+		val dataProvider = ExposedDataProvider(table, entityClass, idColumn, database, allExposedTables)
 		val repository = proxyFactory.create(repositoryClass, dataProvider)
 		repositories[repositoryClass] = repository
 	}

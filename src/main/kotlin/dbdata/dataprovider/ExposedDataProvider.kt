@@ -1,11 +1,15 @@
-
 package dbdata.dataprovider
 
 import dbdata.Entity
 import dbdata.query.LogicalOperator
 import dbdata.query.QueryOperator
 import dbdata.query.QuerySpec
-import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.ColumnSet
+import org.jetbrains.exposed.v1.core.Join
+import org.jetbrains.exposed.v1.core.JoinType
+import org.jetbrains.exposed.v1.core.Op
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.between
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.greater
@@ -17,6 +21,9 @@ import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.less
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.like
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.notInList
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteAll
@@ -34,7 +41,8 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	private val table: Table,
 	private val entityClass: KClass<T>,
 	private val idColumn: Column<ID>,
-	private val database: Database
+	private val database: Database,
+	private val allTables: List<Table> // Added parameter
 ) : DataProvider<T, ID>() {
 
 	// Cache für Performance
@@ -110,28 +118,28 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	@Suppress("UNCHECKED_CAST")
 	override suspend fun findByProperty(property: String, value: Any): List<T> =
 		newSuspendedTransaction(db = database) {
-			val column = getColumnByName(property) as Column<Any>
+			val column = getColumnByName(property, propertyToColumnMap) as Column<Any>
 			table.selectAll().where { column eq value }.map { mapRowToEntity(it) }
 		}
 
 	@Suppress("UNCHECKED_CAST")
 	override suspend fun countByProperty(property: String, value: Any): Long =
 		newSuspendedTransaction(db = database) {
-			val column = getColumnByName(property) as Column<Any>
+			val column = getColumnByName(property, propertyToColumnMap) as Column<Any>
 			table.selectAll().where { column eq value }.count()
 		}
 
 	@Suppress("UNCHECKED_CAST")
 	override suspend fun deleteByProperty(property: String, value: Any): Long =
 		newSuspendedTransaction(db = database) {
-			val column = getColumnByName(property) as Column<Any>
+			val column = getColumnByName(property, propertyToColumnMap) as Column<Any>
 			table.deleteWhere { column eq value }.toLong()
 		}
 
 	@Suppress("UNCHECKED_CAST")
 	override suspend fun existsByProperty(property: String, value: Any): Boolean =
 		newSuspendedTransaction(db = database) {
-			val column = getColumnByName(property) as Column<Any>
+			val column = getColumnByName(property, propertyToColumnMap) as Column<Any>
 			table.selectAll().where { column eq value }.limit(1).count() > 0
 		}
 
@@ -146,39 +154,90 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 	override suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): List<T> =
 		newSuspendedTransaction(db = database) {
-			val whereClause = buildWhereClause(querySpec, parameters)
-			table.selectAll().where(whereClause).map { mapRowToEntity(it) }
+			val (whereClause, currentSource) = buildWhereClause(querySpec, parameters)
+			currentSource.selectAll().where { whereClause }.map { mapRowToEntity(it) }
 		}
 
 	override suspend fun countByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long =
 		newSuspendedTransaction(db = database) {
-			val whereClause = buildWhereClause(querySpec, parameters)
-			table.selectAll().where(whereClause).count()
+			val (whereClause, currentSource) = buildWhereClause(querySpec, parameters)
+			currentSource.selectAll().where { whereClause }.count()
 		}
 
 	override suspend fun deleteByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long =
 		newSuspendedTransaction(db = database) {
-			val whereClause = buildWhereClause(querySpec, parameters)
+			val (whereClause, _) = buildWhereClause(querySpec, parameters)
 			table.deleteWhere { whereClause }.toLong()
 		}
 
 	override suspend fun existsByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Boolean =
 		newSuspendedTransaction(db = database) {
-			val whereClause = buildWhereClause(querySpec, parameters)
-			table.selectAll().where(whereClause).limit(1).count() > 0
+			val (whereClause, currentSource) = buildWhereClause(querySpec, parameters)
+			currentSource.selectAll().where { whereClause }.limit(1).count() > 0
 		}
 
 	// ============= PRIVATE HELPER METHODS =============
 
 	@Suppress("UNCHECKED_CAST")
-	private fun buildWhereClause(querySpec: QuerySpec, parameters: List<Any>): Op<Boolean> {
+	private fun buildWhereClause(querySpec: QuerySpec, parameters: List<Any>): Pair<Op<Boolean>, ColumnSet> {
 		if (querySpec.conditions.isEmpty()) {
-			return Op.TRUE
+			return Pair(Op.TRUE, table)
 		}
 
 		var parameterIndex = 0
+		var currentTableSource: ColumnSet = table
+		val joinedTables = mutableSetOf<Table>() // To avoid joining the same table multiple times
+
 		val conditions = querySpec.conditions.map { condition ->
-			val column = getColumnByName(condition.property)
+			val propertyParts = condition.property.split(".")
+			val column: Column<*>
+			val targetTable: Table
+
+			if (propertyParts.size > 1) {
+				val relationName = propertyParts[0] // e.g., "user"
+				val propertyName = propertyParts.drop(1).joinToString(".") // e.g., "name" or "address.city"
+
+				// Convention: 'user' -> find 'users' table
+				val foundRelationTable = allTables.find { it.tableName.equals(relationName + "s", ignoreCase = true) }
+					?: throw IllegalArgumentException("Related table for '$relationName' not found.")
+
+				if (foundRelationTable !in joinedTables) {
+					// Find PK of the other table.
+					val otherTablePk = foundRelationTable.primaryKey?.columns?.firstOrNull()
+						?: foundRelationTable.columns.firstOrNull { it.name.equals("id", ignoreCase = true) }
+						?: throw IllegalStateException("No primary key found for ${foundRelationTable.tableName}")
+
+					// Find FK in the current source table that references the other table's PK.
+					val foreignKeyColumn = currentTableSource.columns.find { it.referee == otherTablePk }
+						// Fallback to naming convention if no FK reference is defined.
+						?: currentTableSource.columns.find { it.name.equals("${relationName}Id", ignoreCase = true) }
+						?: throw IllegalArgumentException("Foreign key for '$relationName' not found in source tables. Looked for a column referencing ${foundRelationTable.tableName}'s PK and a column named '${relationName}Id'.")
+
+					currentTableSource = when (val current = currentTableSource) {
+						is Table -> current.join(
+							foundRelationTable,
+							JoinType.INNER,
+							onColumn = foreignKeyColumn,
+							otherColumn = otherTablePk
+						)
+						is Join -> current.join(
+							foundRelationTable,
+							JoinType.INNER,
+							onColumn = foreignKeyColumn,
+							otherColumn = otherTablePk
+						)
+						else -> error("Unsupported ColumnSet type for join: $current")
+					}
+					joinedTables.add(foundRelationTable)
+				}
+				targetTable = foundRelationTable
+				column = getColumnByName(propertyName, targetTable.columns.associateBy { it.name })
+
+			} else {
+				targetTable = table
+				column = getColumnByName(condition.property, propertyToColumnMap)
+			}
+
 			val expr = when (condition.operator) {
 				QueryOperator.EQUALS -> {
 					val value = parameters[parameterIndex++]
@@ -202,21 +261,19 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 				}
 				QueryOperator.CONTAINING -> {
 					val value = parameters[parameterIndex++].toString()
-					(column as Column<String>) like "%$value%"
+					(column as Column<String>) like "%${value}%"
 				}
 				QueryOperator.CONTAINING_IGNORE_CASE -> {
 					val value = parameters[parameterIndex++].toString()
-					// Fallback: For simplicity, just warn that case-insensitive search
-					// falls back to case-sensitive for now
-					(column as Column<String>) like "%$value%"
+					(column as Column<String>) like "%${value}%"
 				}
 				QueryOperator.STARTING_WITH -> {
 					val value = parameters[parameterIndex++].toString()
-					(column as Column<String>) like "$value%"
+					(column as Column<String>) like "${value}%"
 				}
 				QueryOperator.ENDING_WITH -> {
 					val value = parameters[parameterIndex++].toString()
-					(column as Column<String>) like "%$value"
+					(column as Column<String>) like "%${value}"
 				}
 				QueryOperator.IS_NULL -> {
 					(column as Column<Any?>).isNull()
@@ -241,10 +298,11 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 			expr
 		}
 
-		return when (querySpec.logicalOperator) {
+		val finalOp = when (querySpec.logicalOperator) {
 			LogicalOperator.AND -> conditions.reduce { acc, condition -> acc and condition }
 			LogicalOperator.OR -> conditions.reduce { acc, condition -> acc or condition }
 		}
+		return Pair(finalOp, currentTableSource)
 	}
 
 	private fun mapRowToEntity(row: ResultRow): T {
@@ -257,8 +315,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 			when (paramName) {
 				"id" -> row[idColumn]
 				else -> {
-					val column = propertyToColumnMap[paramName]
-						?: throw IllegalArgumentException("No column found for property: $paramName")
+					val column = getColumnByName(paramName, propertyToColumnMap)
 					row[column]
 				}
 			}
@@ -267,15 +324,14 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		return constructor.callBy(args)
 	}
 
-	private fun getColumnByName(name: String): Column<*> {
-		return propertyToColumnMap[name]
+	private fun getColumnByName(name: String, columnMap: Map<String, Column<*>>): Column<*> {
+		return columnMap[name]
 			?: throw IllegalArgumentException("No column found for property: $name")
 	}
 
 	private fun buildPropertyToColumnMapping(): Map<String, Column<*>> {
 		val mapping = mutableMapOf<String, Column<*>>()
 
-		// Get all columns from the table using reflection
 		val tableClass = table.javaClass.kotlin
 		val columns = tableClass.memberProperties
 			.filter { it.returnType.classifier == Column::class }
@@ -305,7 +361,6 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 	@Suppress("UNCHECKED_CAST")
 	private fun setEntityId(entity: T, id: ID): T {
-		// For data classes, we need to create a new instance with the ID
 		val constructor = entityClass.primaryConstructor
 			?: throw IllegalArgumentException("Entity must have primary constructor")
 
