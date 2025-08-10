@@ -1,0 +1,4 @@
+package dbdata
+
+class Main {
+}
