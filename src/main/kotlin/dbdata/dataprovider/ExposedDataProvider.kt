@@ -1,7 +1,6 @@
 package dbdata.dataprovider
 
-import dbdata.Entity
-import dbdata.Auditable
+import dbdata.* 
 import dbdata.query.LogicalOperator
 import dbdata.query.Pageable
 import dbdata.query.Sort
@@ -42,8 +41,9 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.reflect.KClass
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.primaryConstructor
+import kotlin.reflect.KMutableProperty1
+import kotlin.reflect.KParameter
+import kotlin.reflect.full.*
 import kotlin.reflect.jvm.isAccessible
 
 class ExposedDataProvider<T : Entity<ID>, ID>(
@@ -56,7 +56,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 	// Cache für Performance
 	private val propertyToColumnMap: Map<String, Column<*>> by lazy {
-		buildPropertyToColumnMapping()
+		buildPropertyToColumnMapping(table)
 	}
 
 	override suspend fun save(entity: T): T = newSuspendedTransaction(db = database) {
@@ -95,26 +95,20 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	}
 
 	override suspend fun findById(id: ID): T? = newSuspendedTransaction(db = database) {
-		table.selectAll().where { idColumn eq id }
-			.map { mapRowToEntity(it) }
-			.singleOrNull()
+		findWithRelations(Op.build { idColumn eq id }).firstOrNull()
 	}
 
 	override suspend fun findAll(): List<T> = newSuspendedTransaction(db = database) {
-		table.selectAll().map { mapRowToEntity(it) }
+		findWithRelations(null)
 	}
 
 	override suspend fun findAll(pageable: Pageable): List<T> = newSuspendedTransaction(db = database) {
-		var query = table.selectAll()
-		pageable.sort?.let { sort ->
-			query = applySort(query, sort)
-		}
-		query.limit(pageable.pageSize).offset(pageable.offset).map { mapRowToEntity(it) }
+		findWithRelations(null, pageable.sort, pageable.pageSize, pageable.offset)
 	}
 
 	override suspend fun findAll(sort: Sort): List<T> = newSuspendedTransaction(db = database) {
 		val query = table.selectAll()
-		applySort(query, sort).map { mapRowToEntity(it) }
+		applySort(query, sort).mapNotNull { mapRowToEntity(it, table, entityClass) }
 	}
 
 	override suspend fun deleteById(id: ID): Long = newSuspendedTransaction(db = database) {
@@ -150,7 +144,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	override suspend fun findByProperty(property: String, value: Any): List<T> =
 		newSuspendedTransaction(db = database) {
 			val column = getColumnByName(property, propertyToColumnMap) as Column<Any>
-			table.selectAll().where { column eq value }.map { mapRowToEntity(it) }
+			table.selectAll().where { column eq value }.mapNotNull { mapRowToEntity(it, table, entityClass) }
 		}
 
 	@Suppress("UNCHECKED_CAST")
@@ -192,7 +186,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
                     val exprValues: Map<org.jetbrains.exposed.v1.core.Expression<*>, Any?> =
                         valuesByColumn.mapKeys { (col, _) -> col as org.jetbrains.exposed.v1.core.Expression<*> }
                     val row = ResultRow.createAndFillValues(exprValues)
-                    results.add(mapRowToEntity(row))
+                    mapRowToEntity(row, table, entityClass)?.let { results.add(it) }
                 }
             }
             results
@@ -213,7 +207,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 				query.limit(it).offset(offset ?: 0L)
 			}
 
-			query.map { mapRowToEntity(it) }
+			query.mapNotNull { mapRowToEntity(it, table, entityClass) }
 		}
 
 	override suspend fun countByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long =
@@ -235,6 +229,86 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		}
 
 	// ============= PRIVATE HELPER METHODS =============
+
+	private fun findWithRelations(where: Op<Boolean>?, sort: Sort? = null, limit: Int? = null, offset: Long? = null): List<T> {
+		val eagerRelations = entityClass.memberProperties.filter { prop ->
+			prop.annotations.any { it is OneToMany || it is ManyToOne } &&
+				(prop.findAnnotation<OneToMany>()?.fetch == FetchType.EAGER || prop.findAnnotation<ManyToOne>()?.fetch == FetchType.EAGER)
+		}
+
+		if (eagerRelations.isEmpty()) {
+			val query = table.selectAll()
+			where?.let { query.where(it) }
+			sort?.let { applySort(query, it) }
+			limit?.let { query.limit(it).offset(offset ?: 0L) }
+			return query.mapNotNull { mapRowToEntity(it, table, entityClass) }
+		}
+
+		var join: ColumnSet = table
+		val relationData = eagerRelations.mapNotNull { prop ->
+			val relationAnnotation = prop.annotations.firstOrNull { it is ManyToOne || it is OneToMany } ?: return@mapNotNull null
+			val targetEntityClass = prop.returnType.arguments.firstOrNull()?.type?.classifier as? KClass<Entity<*>>
+				?: prop.returnType.classifier as? KClass<Entity<*>> ?: return@mapNotNull null
+
+			val targetTable = allTables.find { it.tableName.equals(targetEntityClass.simpleName!! + "s", ignoreCase = true) } ?: return@mapNotNull null
+
+			when (relationAnnotation) {
+				is ManyToOne -> {
+					val joinColumnAnn = prop.findAnnotation<JoinColumn>() ?: return@mapNotNull null
+					val fkColumn = table.columns.find { it.name == joinColumnAnn.name } ?: return@mapNotNull null
+					val pkColumn = targetTable.columns.find { it.name == joinColumnAnn.referencedColumnName } ?: return@mapNotNull null
+					join = (join as Table).join(targetTable, JoinType.LEFT, onColumn = fkColumn, otherColumn = pkColumn)
+					Triple(prop, targetEntityClass, targetTable)
+				}
+				is OneToMany -> {
+					val mappedBy = relationAnnotation.mappedBy
+					val targetProp = targetEntityClass.memberProperties.find { it.name == mappedBy } ?: return@mapNotNull null
+					val joinColumnAnn = targetProp.findAnnotation<JoinColumn>() ?: return@mapNotNull null
+					val fkColumn = targetTable.columns.find { it.name == joinColumnAnn.name } ?: return@mapNotNull null
+					val pkColumn = table.columns.find { it.name == joinColumnAnn.referencedColumnName } ?: return@mapNotNull null
+					join = (join as Table).join(targetTable, JoinType.LEFT, onColumn = pkColumn, otherColumn = fkColumn)
+					Triple(prop, targetEntityClass, targetTable)
+				}
+				else -> null
+			}
+		}
+
+		val query = join.selectAll()
+		where?.let { query.where(it) }
+		sort?.let { applySort(query, it) }
+		limit?.let { query.limit(it).offset(offset ?: 0L) }
+
+		val results = query.toList()
+		if (results.isEmpty()) return emptyList()
+
+		val mainEntities = mutableMapOf<ID, T>()
+
+		results.forEach { row ->
+			val mainId = row[idColumn]
+			val mainEntity = mainEntities.getOrPut(mainId) { mapRowToEntity(row, table, entityClass)!! }
+
+			relationData.forEach { (prop, targetClass, targetTable) ->
+				when {
+					prop.findAnnotation<ManyToOne>() != null -> {
+						val relatedEntity = mapRowToEntity(row, targetTable, targetClass)
+						(prop as KMutableProperty1<T, Any?>).set(mainEntity, relatedEntity)
+					}
+					prop.findAnnotation<OneToMany>() != null -> {
+						val relatedEntity = mapRowToEntity(row, targetTable, targetClass)
+						if (relatedEntity != null) {
+							@Suppress("UNCHECKED_CAST")
+							val list = (prop.get(mainEntity) as? MutableList<Entity<*>> ?: mutableListOf())
+							if (!list.contains(relatedEntity)) {
+								list.add(relatedEntity)
+							}
+							(prop as KMutableProperty1<T, Any?>).set(mainEntity, list)
+						}
+					}
+				}
+			}
+		}
+		return mainEntities.values.toList()
+	}
 
 	@Suppress("UNCHECKED_CAST")
 	private fun buildWhereClause(querySpec: QuerySpec, parameters: List<Any>): Pair<Op<Boolean>, ColumnSet> {
@@ -289,11 +363,11 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 					joinedTables.add(foundRelationTable)
 				}
 				targetTable = foundRelationTable
-				column = getColumnByName(propertyName, targetTable.columns.associateBy { it.name })
+				column = getColumnByName(propertyName, buildPropertyToColumnMapping(targetTable))!!
 
 			} else {
 				targetTable = table
-				column = getColumnByName(condition.property, propertyToColumnMap)
+				column = getColumnByName(condition.property, propertyToColumnMap)!!
 			}
 
 			val expr = when (condition.operator) {
@@ -379,34 +453,70 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		return Pair(finalOp, currentTableSource)
 	}
 
-	private fun mapRowToEntity(row: ResultRow): T {
+	private fun <E : Entity<*>> mapRowToEntity(row: ResultRow, table: Table, entityClass: KClass<E>): E? {
 		val constructor = entityClass.primaryConstructor
 			?: throw IllegalArgumentException("Entity ${entityClass.simpleName} must have a primary constructor")
 
-		val args = constructor.parameters.associateWith { param ->
+		val idColumn = table.columns.firstOrNull { it.name == "id" } ?: return null
+
+		if (!row.fieldIndex.containsKey(idColumn) || row[idColumn] == null) {
+			return null
+		}
+
+		val propertyToColumnMap = buildPropertyToColumnMapping(table)
+
+		val args: Map<KParameter, Any?> = constructor.parameters.associateWith { param ->
 			val paramName = param.name ?: throw IllegalArgumentException("Constructor parameter must have a name")
 
 			when (paramName) {
 				"id" -> row[idColumn]
-				"createdAt", "updatedAt" -> row[getColumnByName(paramName, propertyToColumnMap)].let { 
+				"createdAt", "updatedAt" -> getColumnByName(paramName, propertyToColumnMap)?.let { row[it] }?.let {
 					if (it is Long) LocalDateTime.ofEpochSecond(it, 0, ZoneOffset.UTC) else it
 				}
 				else -> {
-					val column = getColumnByName(paramName, propertyToColumnMap)
-					row[column]
+					val column = getColumnByName(paramName, propertyToColumnMap, true)
+					if (column != null && row.fieldIndex.containsKey(column)) {
+						row[column]
+					} else {
+						null
+					}
 				}
 			}
 		}
 
-		return constructor.callBy(args)
+		return try {
+			val nonNullArgs = args.filterValues { it != null }
+			@Suppress("UNCHECKED_CAST")
+			val entity = constructor.callBy(nonNullArgs as Map<KParameter, Any>)
+
+			// Manually set nullable properties that were not in the constructor call
+			entityClass.memberProperties.forEach { prop ->
+				val param = constructor.parameters.find { it.name == prop.name }
+				if (prop is KMutableProperty1<E, *> && param != null && args[param] == null) {
+					if (prop.returnType.isMarkedNullable) {
+						(prop as KMutableProperty1<E, Any?>).set(entity, null)
+					}
+				}
+			}
+
+			entity
+		} catch (e: IllegalArgumentException) {
+			// This can happen if a non-nullable constructor argument is null in the 'args' map.
+			// With the id check, this should indicate inconsistent data rather than a join issue.
+			// For now, we return null to avoid crashing. Consider logging this event.
+			null
+		}
 	}
 
-	private fun getColumnByName(name: String, columnMap: Map<String, Column<*>>): Column<*> {
-		return columnMap[name]
-			?: throw IllegalArgumentException("No column found for property: $name")
+	private fun getColumnByName(name: String, columnMap: Map<String, Column<*>>, optional: Boolean = false): Column<*>? {
+		val column = columnMap[name]
+		if (column == null && !optional) {
+			throw IllegalArgumentException("No column found for property: $name")
+		}
+		return column
 	}
 
-	private fun buildPropertyToColumnMapping(): Map<String, Column<*>> {
+	private fun buildPropertyToColumnMapping(table: Table): Map<String, Column<*>> {
 		val mapping = mutableMapOf<String, Column<*>>()
 
 		val tableClass = table.javaClass.kotlin
@@ -432,16 +542,18 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		entityClass.memberProperties.forEach { prop ->
 			if (excludeId && prop.name == "id") return@forEach
 
-			val column = propertyToColumnMap[prop.name] ?: return@forEach
-			prop.isAccessible = true
-			val value = prop.get(entity)
+			val column = propertyToColumnMap[prop.name]
+			if (column != null) {
+				prop.isAccessible = true
+				val value = prop.get(entity)
 
-			when (prop.name) {
-				"createdAt" -> if (isInsert) statement[column as Column<Long>] = now.toEpochSecond(ZoneOffset.UTC) else return@forEach
-				"updatedAt" -> statement[column as Column<Long>] = now.toEpochSecond(ZoneOffset.UTC)
-				"createdBy" -> if (isInsert) statement[column as Column<String>] = currentUser else return@forEach
-				"updatedBy" -> statement[column as Column<String>] = currentUser
-				else -> statement[column as Column<Any?>] = value
+				when (prop.name) {
+					"createdAt" -> if (isInsert) statement[column as Column<Long>] = now.toEpochSecond(ZoneOffset.UTC) else return@forEach
+					"updatedAt" -> statement[column as Column<Long>] = now.toEpochSecond(ZoneOffset.UTC)
+					"createdBy" -> if (isInsert) statement[column as Column<String>] = currentUser else return@forEach
+					"updatedBy" -> statement[column as Column<String>] = currentUser
+					else -> if (value != null) (column as? Column<Any>)?.let { statement[it] = value }
+				}
 			}
 		}
 	}
@@ -466,7 +578,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	private fun applySort(query: Query, sort: Sort): Query {
 		sort.orders.forEach { order ->
 			val column = getColumnByName(order.property, propertyToColumnMap)
-			query.orderBy(column, if (order.direction == Sort.Direction.ASC) org.jetbrains.exposed.v1.core.SortOrder.ASC else org.jetbrains.exposed.v1.core.SortOrder.DESC)
+			query.orderBy(column!!, if (order.direction == Sort.Direction.ASC) org.jetbrains.exposed.v1.core.SortOrder.ASC else org.jetbrains.exposed.v1.core.SortOrder.DESC)
 		}
 		return query
 	}

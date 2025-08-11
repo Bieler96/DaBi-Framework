@@ -8,7 +8,7 @@ import java.time.LocalDateTime
 import dbdata.query.PageRequest
 import dbdata.query.Sort
 
-data class User(
+class User(
 	override val id: Long? = null,
 	val name: String,
 	val email: String,
@@ -18,9 +18,28 @@ data class User(
 	override var updatedAt: LocalDateTime? = null,
 	override var createdBy: String? = null,
 	override var updatedBy: String? = null
-) : Entity<Long>
+) : Entity<Long> {
+	@OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
+	var posts: List<Post> = emptyList()
 
-data class Post(
+	override fun toString(): String {
+		return "User(id=$id, name='$name', email='$email', age=$age, active=$active, createdAt=$createdAt, updatedAt=$updatedAt, createdBy=$createdBy, updatedBy=$updatedBy, posts=${posts.map { it.id }})"
+	}
+
+	override fun equals(other: Any?): Boolean {
+		if (this === other) return true
+		if (javaClass != other?.javaClass) return false
+		other as User
+		if (id != other.id) return false
+		return true
+	}
+
+	override fun hashCode(): Int {
+		return id?.hashCode() ?: 0
+	}
+}
+
+class Post(
 	override val id: Long? = null,
 	val title: String,
 	val content: String,
@@ -29,7 +48,27 @@ data class Post(
 	override var updatedAt: LocalDateTime? = null,
 	override var createdBy: String? = null,
 	override var updatedBy: String? = null
-) : Entity<Long>
+) : Entity<Long> {
+	@ManyToOne(fetch = FetchType.EAGER)
+	@JoinColumn(name = "user_id", referencedColumnName = "id")
+	var user: User? = null
+
+	override fun toString(): String {
+		return "Post(id=$id, title='$title', content='$content', userId=$userId, user=${user?.id}, createdAt=$createdAt, updatedAt=$updatedAt, createdBy=$createdBy, updatedBy=$updatedBy)"
+	}
+
+	override fun equals(other: Any?): Boolean {
+		if (this === other) return true
+		if (javaClass != other?.javaClass) return false
+		other as Post
+		if (id != other.id) return false
+		return true
+	}
+
+	override fun hashCode(): Int {
+		return id?.hashCode() ?: 0
+	}
+}
 
 @Repository
 interface UserRepository : CrudRepository<User, Long> {
@@ -179,30 +218,30 @@ suspend fun main() {
 	// Demonstrate pagination
 	println(
 		"""
---- Paginated Users (Page 0, Size 2) ---"""
-	)
+---	Paginated Users (Page 0, Size 2) ---
+""")
 	val page0 = userRepository.findAll(PageRequest(pageNumber = 0, pageSize = 2))
 	println("Page 0: $page0")
 
 	println(
 		"""
---- Paginated Users (Page 1, Size 2) ---"""
-	)
+---	Paginated Users (Page 1, Size 2) ---
+""")
 	val page1 = userRepository.findAll(PageRequest(pageNumber = 1, pageSize = 2))
 	println("Page 1: $page1")
 
 	// Demonstrate sorting
 	println(
 		"""
---- Users sorted by Name ASC ---"""
-	)
+---	Users sorted by Name ASC ---
+""")
 	val sortedByNameAsc = userRepository.findAll(Sort(property = "name", direction = Sort.Direction.ASC))
 	println("Sorted by Name ASC: $sortedByNameAsc")
 
 	println(
 		"""
---- Users sorted by Age DESC ---"""
-	)
+---	Users sorted by Age DESC ---
+""")
 	val sortedByAgeDesc = userRepository.findAll(Sort(property = "age", direction = Sort.Direction.DESC))
 	println("Sorted by Age DESC: $sortedByAgeDesc")
 
@@ -218,17 +257,15 @@ suspend fun main() {
 	// Demonstrate custom raw SQL query
 	println(
 		"""
---- Custom SQL Query: Users older than 26 ---
-"""
-	)
+---	Custom SQL Query: Users older than 26 ---
+""")
 	val customQueryResults = userRepository.findUsersOlderThan(27)
 	println("Custom Query Result: $customQueryResults")
 
 	println(
 		"""
---- Extended Query Examples ---
-"""
-	)
+---	Extended Query Examples ---
+""")
 
 	// OrderBy
 	val usersByAgeSorted = userRepository.findByAgeOrderByNameDesc(30)
@@ -253,4 +290,16 @@ suspend fun main() {
 	// True
 	val activeUsers = userRepository.findByActiveTrue()
 	println("Active users: $activeUsers")
+
+	// Demonstrate fetching a post and its related user
+	println("\n--- Fetching post with eager-loaded user ---")
+	val postWithUser = postRepository.findById(post1.id!!)
+	println("Fetched Post: $postWithUser")
+	println("User from Post: ${postWithUser?.user}")
+
+	// Demonstrate fetching a user and their related posts
+	println("\n--- Fetching user with eager-loaded posts ---")
+	val userWithPosts = userRepository.findById(user1.id!!)
+	println("Fetched User: $userWithPosts")
+	println("Posts from User: ${userWithPosts?.posts}")
 }

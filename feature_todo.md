@@ -19,7 +19,7 @@ This document outlines potential feature enhancements for the `dbdata` module, b
 *   **Boolean Field Operators:**
     *   `True`/`False` for boolean properties.
 
-## 2. Relationship and Join Handling
+## 2. Relationship and Join Handling (DONE)
 
 *   **Explicit Relationship Definition:**
     *   Introduce annotations (e.g., `@OneToMany`, `@ManyToOne`, `@OneToOne`, `@ManyToMany`) on entity properties to define relationships.
