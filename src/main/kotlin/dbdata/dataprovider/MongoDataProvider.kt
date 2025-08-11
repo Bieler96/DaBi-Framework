@@ -4,6 +4,7 @@ package dbdata.dataprovider
 import com.mongodb.kotlin.client.coroutine.FindFlow
 import com.mongodb.kotlin.client.coroutine.MongoCollection
 import dbdata.Entity
+import dbdata.exception.EntityNotFoundException
 import dbdata.Auditable
 import dbdata.query.QueryOperator
 import dbdata.query.QuerySpec
@@ -35,10 +36,13 @@ class MongoDataProvider<T : Entity<String>>(
 			// Update existing
 			(entity as Auditable).updatedAt = now
 			(entity as Auditable).updatedBy = currentUser
-			collection.replaceOne(
+			val result = collection.replaceOne(
 				org.bson.Document("_id", entity.id),
 				entity
 			)
+			if (result.matchedCount == 0L) {
+				throw EntityNotFoundException(entityClass.simpleName ?: "Entity", entity.id!!)
+			}
 			return entity
 		}
 	}

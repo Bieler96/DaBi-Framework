@@ -76,7 +76,7 @@ This document outlines potential feature enhancements for the `dbdata` module, b
     *   While Exposed handles transactions, a more explicit API at the repository or service layer could be beneficial for complex operations spanning multiple repositories or services.
     *   Consider `@Transactional` annotation or similar.
 
-## 11. Enhanced Error Handling
+## 11. Enhanced Error Handling (DONE)
 
 *   **Specific Exception Types:**
     *   Define and throw more specific exception types for data access errors (e.g., `EntityNotFoundException`, `ConstraintViolationException`, `DataIntegrityViolationException`) to allow for more granular error handling in the application.

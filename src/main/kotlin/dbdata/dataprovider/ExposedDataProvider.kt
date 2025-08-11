@@ -1,6 +1,7 @@
 package dbdata.dataprovider
 
 import dbdata.* 
+import dbdata.exception.EntityNotFoundException
 import dbdata.query.LogicalOperator
 import dbdata.query.Pageable
 import dbdata.query.Sort
@@ -79,8 +80,11 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 			// Update existing entity
 			(entity as Auditable).updatedAt = now
 			(entity as Auditable).updatedBy = currentUser
-			table.update({ idColumn eq entity.id!! }) {
+			val updatedRows = table.update({ idColumn eq entity.id!! }) {
 				fillStatementFromEntity(it, entity, excludeId = true)
+			}
+			if (updatedRows == 0) {
+				throw EntityNotFoundException(entityClass.simpleName ?: "Entity", entity.id!!)
 			}
 			entity
 		}
