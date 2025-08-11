@@ -2,7 +2,7 @@
 
 This document outlines potential feature enhancements for the `dbdata` module, based on current capabilities and common ORM/repository patterns.
 
-## 1. Extended Query Operators and Keywords
+## 1. Extended Query Operators and Keywords (DONE)
 
 *   **Sorting:**
     *   Implement `OrderBy` functionality (e.g., `findByNameOrderByNameDesc`, `findByAgeOrderByAgeAsc`).

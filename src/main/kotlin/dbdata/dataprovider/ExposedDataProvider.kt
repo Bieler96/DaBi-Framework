@@ -27,6 +27,7 @@ import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.isNull
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.less
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.like
+import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.neq
 import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.notInList
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.and
@@ -199,10 +200,20 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 	// ============= NEW ADVANCED QUERY METHODS =============
 
-	override suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): List<T> =
+	override suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>, sort: Sort?, limit: Int?, offset: Long?, distinct: Boolean): List<T> =
 		newSuspendedTransaction(db = database) {
 			val (whereClause, currentSource) = buildWhereClause(querySpec, parameters)
-			currentSource.selectAll().where { whereClause }.map { mapRowToEntity(it) }
+			val query = currentSource.selectAll().where { whereClause }.withDistinct(distinct)
+
+			sort?.let {
+				applySort(query, it)
+			}
+
+			limit?.let {
+				query.limit(it).offset(offset ?: 0L)
+			}
+
+			query.map { mapRowToEntity(it) }
 		}
 
 	override suspend fun countByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long =
@@ -340,6 +351,22 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 					val minValue = parameters[parameterIndex++] as Comparable<Any>
 					val maxValue = parameters[parameterIndex++] as Comparable<Any>
 					(column as Column<Comparable<Any>>).between(minValue, maxValue)
+				}
+				QueryOperator.NOT -> {
+					val value = parameters[parameterIndex++]
+					(column as Column<Any>) neq value
+				}
+				QueryOperator.IS_EMPTY -> {
+					(column as Column<String>) eq ""
+				}
+				QueryOperator.IS_NOT_EMPTY -> {
+					(column as Column<String>) neq ""
+				}
+				QueryOperator.TRUE -> {
+					(column as Column<Boolean>) eq true
+				}
+				QueryOperator.FALSE -> {
+					(column as Column<Boolean>) eq false
 				}
 			}
 			expr

@@ -129,11 +129,16 @@ class MongoDataProvider<T : Entity<String>>(
 		return collection.find(filterDocument).toList()
 	}
 
-	override suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): List<T> {
+	override suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>, sort: Sort?, limit: Int?, offset: Long?, distinct: Boolean): List<T> {
 		// TODO: Implement advanced MongoDB queries
 		// For now, fallback to simple implementation
 		if (querySpec.conditions.size == 1 && querySpec.conditions[0].operator == QueryOperator.EQUALS) {
-			return findByProperty(querySpec.conditions[0].property, parameters[0])
+			var findFlow = collection.find(Document(querySpec.conditions[0].property, parameters[0]))
+			sort?.let { findFlow = applySort(findFlow, it) }
+			offset?.let { findFlow = findFlow.skip(it.toInt()) }
+			limit?.let { findFlow = findFlow.limit(it) }
+			// distinct is not easily supported for full documents in mongo, skipping for now
+			return findFlow.toList()
 		}
 		return emptyList()
 	}

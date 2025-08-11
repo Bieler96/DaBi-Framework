@@ -23,7 +23,7 @@ abstract class DataProvider<T : Entity<ID>, ID> {
 	abstract suspend fun existsByProperty(property: String, value: Any): Boolean
 	abstract suspend fun executeCustomQuery(query: String, params: Map<String, Any>): List<T>
 
-	abstract suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): List<T>
+	abstract suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>, sort: Sort? = null, limit: Int? = null, offset: Long? = null, distinct: Boolean = false): List<T>
 	abstract suspend fun countByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long
 	abstract suspend fun deleteByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long
 	abstract suspend fun existsByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Boolean

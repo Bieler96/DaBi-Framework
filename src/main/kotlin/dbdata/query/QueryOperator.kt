@@ -14,5 +14,10 @@ enum class QueryOperator {
 	IS_NOT_NULL,
 	IN,
 	NOT_IN,
-	BETWEEN
+	BETWEEN,
+	NOT,
+	IS_EMPTY,
+	IS_NOT_EMPTY,
+	TRUE,
+	FALSE
 }

@@ -13,6 +13,7 @@ data class User(
 	val name: String,
 	val email: String,
 	val age: Int,
+	val active: Boolean = true,
 	override var createdAt: LocalDateTime? = null,
 	override var updatedAt: LocalDateTime? = null,
 	override var createdBy: String? = null,
@@ -57,6 +58,15 @@ interface UserRepository : CrudRepository<User, Long> {
 	suspend fun findByEmailContainingAndAgeLessThan(emailPart: String, maxAge: Int): List<User>
 	suspend fun countByAgeGreaterThanAndNameStartingWith(minAge: Int, namePrefix: String): Long
 
+	// Extended Query Examples
+	suspend fun findByAgeOrderByNameDesc(age: Int): List<User>
+	suspend fun findByNameLimit1(name: String): List<User>
+	suspend fun findDistinctByAge(age: Int): List<User>
+	suspend fun findByNameNot(name: String): List<User>
+	suspend fun findByEmailIsNotEmpty(): List<User>
+	suspend fun findByActiveTrue(): List<User>
+
+
 	@Query("SELECT * FROM users WHERE age > :minAge")
 	suspend fun findUsersOlderThan(minAge: Int): List<User>
 }
@@ -72,6 +82,7 @@ object UsersTable : Table("users") {
 	val name = varchar("name", 100)
 	val email = varchar("email", 200)
 	val age = integer("age")
+	val active = bool("active").default(true)
 	val createdAt = long("created_at").nullable()
 	val updatedAt = long("updated_at").nullable()
 	val createdBy = varchar("created_by", 255).nullable()
@@ -98,6 +109,7 @@ fun setupRepositories(): DataRepositoryConfiguration {
 	// Exposed Setup
 	val database = Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "org.h2.Driver")
 	transaction(database) {
+		SchemaUtils.drop(UsersTable, PostsTable)
 		SchemaUtils.create(UsersTable, PostsTable) // Create both tables
 	}
 	config.registerExposedRepository(
@@ -123,11 +135,14 @@ suspend fun main() {
 	val userRepository = config.getRepository(UserRepository::class)
 	val postRepository = config.getRepository(PostRepository::class)
 
-	val user1 = userRepository.save(User(name = "John Doe", email = "john@example.com", age = 30))
-	val user2 = userRepository.save(User(name = "Jane Smith", email = "jane@example.com", age = 25))
+	val user1 = userRepository.save(User(name = "John Doe", email = "john@example.com", age = 30, active = true))
+	val user2 = userRepository.save(User(name = "Jane Smith", email = "jane@example.com", age = 25, active = false))
+	val user3 = userRepository.save(User(name = "John Smith", email = "john.smith@example.com", age = 30, active = true))
+
 
 	println("Saved User1: $user1")
 	println("Saved User2: $user2")
+	println("Saved User3: $user3")
 
 	// Save posts for user1
 	val post1 = postRepository.save(Post(title = "My First Post", content = "Hello World!", userId = user1.id!!))
@@ -208,4 +223,34 @@ suspend fun main() {
 	)
 	val customQueryResults = userRepository.findUsersOlderThan(27)
 	println("Custom Query Result: $customQueryResults")
+
+	println(
+		"""
+--- Extended Query Examples ---
+"""
+	)
+
+	// OrderBy
+	val usersByAgeSorted = userRepository.findByAgeOrderByNameDesc(30)
+	println("Users with age 30, sorted by name desc: $usersByAgeSorted")
+
+	// Limit
+	val limitedUser = userRepository.findByNameLimit1("John Doe")
+	println("Limited user: $limitedUser")
+
+	// Distinct
+	val distinctUsersByAge = userRepository.findDistinctByAge(30)
+	println("Distinct users by age 30: $distinctUsersByAge")
+
+	// Not
+	val usersNotJohnDoe = userRepository.findByNameNot("John Doe")
+	println("Users not named John Doe: $usersNotJohnDoe")
+
+	// IsNotEmpty
+	val usersWithEmail = userRepository.findByEmailIsNotEmpty()
+	println("Users with non-empty email: $usersWithEmail")
+
+	// True
+	val activeUsers = userRepository.findByActiveTrue()
+	println("Active users: $activeUsers")
 }

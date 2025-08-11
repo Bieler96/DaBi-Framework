@@ -6,21 +6,67 @@ import kotlin.reflect.full.isSubclassOf
 
 class QueryMethodParser {
 	fun parseMethodName(methodName: String): QueryInfo {
-		val (type, queryPart) = when {
-			methodName.startsWith("findBy") -> QueryType.FIND to methodName.removePrefix("findBy")
-			methodName.startsWith("countBy") -> QueryType.COUNT to methodName.removePrefix("countBy")
-			methodName.startsWith("deleteBy") -> QueryType.DELETE to methodName.removePrefix("deleteBy")
-			methodName.startsWith("existsBy") -> QueryType.EXISTS to methodName.removePrefix("existsBy")
+		val (type, tempMethodName, distinct) = when {
+			methodName.startsWith("findDistinctBy") -> Triple(QueryType.FIND, methodName.removePrefix("findDistinctBy"), true)
+			methodName.startsWith("findBy") -> Triple(QueryType.FIND, methodName.removePrefix("findBy"), false)
+			methodName.startsWith("countBy") -> Triple(QueryType.COUNT, methodName.removePrefix("countBy"), false)
+			methodName.startsWith("deleteBy") -> Triple(QueryType.DELETE, methodName.removePrefix("deleteBy"), false)
+			methodName.startsWith("existsBy") -> Triple(QueryType.EXISTS, methodName.removePrefix("existsBy"), false)
 			else -> return QueryInfo(QueryType.CUSTOM, methodName)
 		}
 
-		val querySpec = parseQuerySpec(queryPart)
+		var rest = tempMethodName
+
+		val limitRegex = Regex("Limit([0-9]+)$")
+		var limit: Int? = null
+		limitRegex.find(rest)?.let {
+			limit = it.groupValues[1].toInt()
+			rest = rest.substring(0, it.range.first)
+		}
+
+		val offsetRegex = Regex("Offset([0-9]+)$")
+		var offset: Long? = null
+		offsetRegex.find(rest)?.let {
+			offset = it.groupValues[1].toLong()
+			rest = rest.substring(0, it.range.first)
+		}
+
+		val orderByParts = rest.split("OrderBy")
+		val queryPart = orderByParts[0]
+		val sortPart = if (orderByParts.size > 1) orderByParts[1] else null
+
+		val querySpec = if (queryPart.isNotEmpty()) parseQuerySpec(queryPart) else QuerySpec(emptyList(), LogicalOperator.AND)
+		val sort = sortPart?.let { if (it.isNotEmpty()) parseSort(it) else null }
+
 		val primaryProperty = querySpec.conditions.firstOrNull()?.property ?: ""
-		val queryInfo = QueryInfo(type, primaryProperty, querySpec)
+		val queryInfo = QueryInfo(type, primaryProperty, querySpec, sort, limit, offset, distinct)
 
 		// Debug output
 		println("DEBUG: Parsed method '$methodName' -> queryInfo: $queryInfo")
 		return queryInfo
+	}
+
+	private fun parseSort(sortPart: String): Sort {
+		val orders = mutableListOf<Sort.Order>()
+		var remaining = sortPart
+		val directionRegex = "(Asc|Desc)$".toRegex()
+
+		while (remaining.isNotEmpty()) {
+			val directionMatch = directionRegex.find(remaining)
+			val direction = if (directionMatch != null && directionMatch.value == "Desc") Sort.Direction.DESC else Sort.Direction.ASC
+
+			val propertyPart = if (directionMatch != null) remaining.removeSuffix(directionMatch.value) else remaining
+			if (propertyPart.isEmpty()) break
+
+			val propertyNameWords = propertyPart.split(Regex("(?=[A-Z])")).filter { it.isNotBlank() }
+			if (propertyNameWords.isEmpty()) break
+
+			val lastPropertyWord = propertyNameWords.last()
+			orders.add(Sort.Order(extractPropertyName(lastPropertyWord), direction))
+
+			remaining = propertyPart.removeSuffix(lastPropertyWord)
+		}
+		return Sort(orders.reversed())
 	}
 
 	private fun parseQuerySpec(queryPart: String): QuerySpec {
@@ -110,6 +156,31 @@ class QueryMethodParser {
 			conditionPart.endsWith("Between") -> {
 				val property = extractPropertyName(conditionPart.removeSuffix("Between"))
 				QueryCondition(property, QueryOperator.BETWEEN)
+			}
+
+			conditionPart.endsWith("Not") -> {
+				val property = extractPropertyName(conditionPart.removeSuffix("Not"))
+				QueryCondition(property, QueryOperator.NOT)
+			}
+
+			conditionPart.endsWith("IsEmpty") -> {
+				val property = extractPropertyName(conditionPart.removeSuffix("IsEmpty"))
+				QueryCondition(property, QueryOperator.IS_EMPTY)
+			}
+
+			conditionPart.endsWith("IsNotEmpty") -> {
+				val property = extractPropertyName(conditionPart.removeSuffix("IsNotEmpty"))
+				QueryCondition(property, QueryOperator.IS_NOT_EMPTY)
+			}
+
+			conditionPart.endsWith("True") -> {
+				val property = extractPropertyName(conditionPart.removeSuffix("True"))
+				QueryCondition(property, QueryOperator.TRUE)
+			}
+
+			conditionPart.endsWith("False") -> {
+				val property = extractPropertyName(conditionPart.removeSuffix("False"))
+				QueryCondition(property, QueryOperator.FALSE)
 			}
 
 			else -> {

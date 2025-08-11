@@ -69,7 +69,14 @@ class RepositoryInvocationHandler<T : Entity<ID>, ID>(
 	): Any? {
 		return when (queryInfo.type) {
 			QueryType.FIND -> {
-				val results = dataProvider.findByQuerySpec(queryInfo.querySpec, parameters.toList())
+				val results = dataProvider.findByQuerySpec(
+					queryInfo.querySpec,
+					parameters.toList(),
+					queryInfo.sort,
+					queryInfo.limit,
+					queryInfo.offset,
+					queryInfo.distinct
+				)
 
 				// Check if method should return single entity or list
 				if (method.kotlinFunction?.let { queryParser.shouldReturnSingle(method.name, it.returnType) } == true) {
