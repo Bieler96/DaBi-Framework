@@ -8,6 +8,8 @@ import java.time.LocalDateTime
 import dbdata.query.PageRequest
 import dbdata.query.Sort
 
+data class UserDto(val name: String, val email: String)
+
 class User(
 	override val id: Long? = null,
 	val name: String,
@@ -105,6 +107,7 @@ interface UserRepository : CrudRepository<User, Long> {
 	suspend fun findByEmailIsNotEmpty(): List<User>
 	suspend fun findByActiveTrue(): List<User>
 
+	suspend fun findByNameAsUserDto(name: String): List<UserDto>
 
 	@Query("SELECT * FROM users WHERE age > :minAge")
 	suspend fun findUsersOlderThan(minAge: Int): List<User>
@@ -302,4 +305,9 @@ suspend fun main() {
 	val userWithPosts = userRepository.findById(user1.id!!)
 	println("Fetched User: $userWithPosts")
 	println("Posts from User: ${userWithPosts?.posts}")
+
+	// --- Test Projection ---
+	println("\n--- Testing Projection ---")
+	val userDtos = userRepository.findByNameAsUserDto("John Doe")
+	println("User DTOs for 'John Doe': $userDtos")
 }

@@ -1,6 +1,6 @@
 package dbdata.dataprovider
 
-import dbdata.* 
+import dbdata.*
 import dbdata.exception.EntityNotFoundException
 import dbdata.query.LogicalOperator
 import dbdata.query.Pageable
@@ -59,6 +59,8 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	private val propertyToColumnMap: Map<String, Column<*>> by lazy {
 		buildPropertyToColumnMapping(table)
 	}
+
+	override fun getEntityClass(): KClass<T> = entityClass
 
 	override suspend fun save(entity: T): T = newSuspendedTransaction(db = database) {
 		val now = LocalDateTime.now()
@@ -198,7 +200,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 	// ============= NEW ADVANCED QUERY METHODS =============
 
-	override suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>, sort: Sort?, limit: Int?, offset: Long?, distinct: Boolean): List<T> =
+	override suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>, sort: Sort?, limit: Int?, offset: Long?, distinct: Boolean, projectionClass: KClass<*>?): List<Any> =
 		newSuspendedTransaction(db = database) {
 			val (whereClause, currentSource) = buildWhereClause(querySpec, parameters)
 			val query = currentSource.selectAll().where { whereClause }.withDistinct(distinct)
@@ -341,13 +343,13 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 					// Find PK of the other table.
 					val otherTablePk = foundRelationTable.primaryKey?.columns?.firstOrNull()
 						?: foundRelationTable.columns.firstOrNull { it.name.equals("id", ignoreCase = true) }
-						?: throw IllegalStateException("No primary key found for ${foundRelationTable.tableName}")
+						?: throw IllegalStateException("No primary key found for ${'$'}{foundRelationTable.tableName}")
 
 					// Find FK in the current source table that references the other table's PK.
 					val foreignKeyColumn = currentTableSource.columns.find { it.referee == otherTablePk }
 						// Fallback to naming convention if no FK reference is defined.
-						?: currentTableSource.columns.find { it.name.equals("${relationName}Id", ignoreCase = true) }
-						?: throw IllegalArgumentException("Foreign key for '$relationName' not found in source tables. Looked for a column referencing ${foundRelationTable.tableName}'s PK and a column named '${relationName}Id'.")
+						?: currentTableSource.columns.find { it.name.equals("${'$'}{relationName}Id", ignoreCase = true) }
+						?: throw IllegalArgumentException("Foreign key for '$relationName' not found in source tables. Looked for a column referencing ${'$'}{foundRelationTable.tableName}'s PK and a column named '${'$'}{relationName}Id'.")
 
 					currentTableSource = when (val current = currentTableSource) {
 						is Table -> current.join(
@@ -397,19 +399,19 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 				}
 				QueryOperator.CONTAINING -> {
 					val value = parameters[parameterIndex++].toString()
-					(column as Column<String>) like "%${value}%"
+					(column as Column<String>) like "%${'$'}{value}%"
 				}
 				QueryOperator.CONTAINING_IGNORE_CASE -> {
 					val value = parameters[parameterIndex++].toString()
-					(column as Column<String>) like "%${value}%"
+					(column as Column<String>) like "%${'$'}{value}%"
 				}
 				QueryOperator.STARTING_WITH -> {
 					val value = parameters[parameterIndex++].toString()
-					(column as Column<String>) like "${value}%"
+					(column as Column<String>) like "${'$'}{value}%"
 				}
 				QueryOperator.ENDING_WITH -> {
 					val value = parameters[parameterIndex++].toString()
-					(column as Column<String>) like "%${value}"
+					(column as Column<String>) like "%${'$'}{value}"
 				}
 				QueryOperator.IS_NULL -> {
 					(column as Column<Any?>).isNull()
@@ -459,7 +461,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 	private fun <E : Entity<*>> mapRowToEntity(row: ResultRow, table: Table, entityClass: KClass<E>): E? {
 		val constructor = entityClass.primaryConstructor
-			?: throw IllegalArgumentException("Entity ${entityClass.simpleName} must have a primary constructor")
+			?: throw IllegalArgumentException("Entity ${'$'}{entityClass.simpleName} must have a primary constructor")
 
 		val idColumn = table.columns.firstOrNull { it.name == "id" } ?: return null
 

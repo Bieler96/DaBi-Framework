@@ -15,11 +15,16 @@ import kotlinx.coroutines.flow.toList
 import java.time.LocalDateTime
 import org.bson.Document
 import com.mongodb.client.model.Updates
+import kotlin.reflect.KClass
 
 class MongoDataProvider<T : Entity<String>>(
 	private val collection: MongoCollection<T>,
 	private val entityClass: kotlin.reflect.KClass<T>
 ): DataProvider<T, String>() {
+	override fun getEntityClass(): KClass<T> {
+		TODO("Not yet implemented")
+	}
+
 	override suspend fun save(entity: T): T {
 		val now = LocalDateTime.now()
 		val currentUser = "system" // TODO: Replace with actual user from context
@@ -133,9 +138,25 @@ class MongoDataProvider<T : Entity<String>>(
 		return collection.find(filterDocument).toList()
 	}
 
-	override suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>, sort: Sort?, limit: Int?, offset: Long?, distinct: Boolean): List<T> {
-		// TODO: Implement advanced MongoDB queries
-		// For now, fallback to simple implementation
+	override suspend fun findByQuerySpec(
+		querySpec: QuerySpec,
+		parameters: List<Any>,
+		sort: Sort?,
+		limit: Int?,
+		offset: Long?,
+		distinct: Boolean,
+		projectionClass: KClass<*>?
+	): List<Any> {
+		// TODO: Implement advanced MongoDB queries with projections
+		if (projectionClass != null && projectionClass != entityClass) {
+			// The logic to handle projections would go here.
+			// It would involve creating a projection document and mapping the results.
+			// For now, returning empty list to indicate it's not implemented.
+			println("WARN: Projections are not yet fully implemented for MongoDataProvider.")
+			return emptyList()
+		}
+
+		// Fallback to existing limited implementation
 		if (querySpec.conditions.size == 1 && querySpec.conditions[0].operator == QueryOperator.EQUALS) {
 			var findFlow = collection.find(Document(querySpec.conditions[0].property, parameters[0]))
 			sort?.let { findFlow = applySort(findFlow, it) }

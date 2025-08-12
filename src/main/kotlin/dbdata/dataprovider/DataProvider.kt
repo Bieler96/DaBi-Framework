@@ -4,8 +4,10 @@ import dbdata.Entity
 import dbdata.query.QuerySpec
 import dbdata.query.Pageable
 import dbdata.query.Sort
+import kotlin.reflect.KClass
 
 abstract class DataProvider<T : Entity<ID>, ID> {
+	abstract fun getEntityClass(): KClass<T>
 	abstract suspend fun save(entity: T): T
 	abstract suspend fun saveAll(entities: Iterable<T>): List<T>
 	abstract suspend fun findById(id: ID): T?
@@ -23,7 +25,7 @@ abstract class DataProvider<T : Entity<ID>, ID> {
 	abstract suspend fun existsByProperty(property: String, value: Any): Boolean
 	abstract suspend fun executeCustomQuery(query: String, params: Map<String, Any>): List<T>
 
-	abstract suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>, sort: Sort? = null, limit: Int? = null, offset: Long? = null, distinct: Boolean = false): List<T>
+	abstract suspend fun findByQuerySpec(querySpec: QuerySpec, parameters: List<Any>, sort: Sort? = null, limit: Int? = null, offset: Long? = null, distinct: Boolean = false, projectionClass: KClass<*>? = null): List<Any>
 	abstract suspend fun countByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long
 	abstract suspend fun deleteByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long
 	abstract suspend fun existsByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Boolean

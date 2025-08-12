@@ -17,6 +17,12 @@ class QueryMethodParser {
 
 		var rest = tempMethodName
 
+		// New: Handle projections like "findByNameAsDto"
+		val projectionRegex = "As[A-Z][a-zA-Z0-9]*$".toRegex()
+		projectionRegex.find(rest)?.let {
+			rest = rest.substring(0, it.range.first)
+		}
+
 		val limitRegex = Regex("Limit([0-9]+)$")
 		var limit: Int? = null
 		limitRegex.find(rest)?.let {

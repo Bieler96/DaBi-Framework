@@ -10,12 +10,18 @@ import kotlinx.coroutines.runBlocking
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import kotlin.coroutines.Continuation
+import kotlin.reflect.KClass
+import kotlin.reflect.full.isSubclassOf
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.kotlinFunction
 
 class RepositoryInvocationHandler<T : Entity<ID>, ID>(
 	private val dataProvider: DataProvider<T, ID>,
 	private val queryParser: QueryMethodParser
 ) : InvocationHandler {
+
+	private val entityClass: KClass<T> = dataProvider.getEntityClass()
 
 	@Suppress("UNCHECKED_CAST")
 	override fun invoke(proxy: Any, method: Method, args: Array<out Any>?): Any? {
@@ -67,6 +73,20 @@ class RepositoryInvocationHandler<T : Entity<ID>, ID>(
 		parameters: Array<out Any>,
 		method: Method
 	): Any? {
+		val returnType = method.kotlinFunction!!.returnType
+		val returnKClass = returnType.classifier as? KClass<*>
+		val projectionTarget: KClass<*>? = if (returnKClass?.isSubclassOf(Collection::class) == true || returnKClass?.isSubclassOf(List::class) == true) {
+			returnType.arguments.firstOrNull()?.type?.classifier as? KClass<*>
+		} else {
+			returnKClass
+		}
+
+		val projectionClass = if (projectionTarget != null && projectionTarget != entityClass && !projectionTarget.isSubclassOf(Entity::class)) {
+			projectionTarget
+		} else {
+			null
+		}
+
 		return when (queryInfo.type) {
 			QueryType.FIND -> {
 				val results = dataProvider.findByQuerySpec(
@@ -78,11 +98,17 @@ class RepositoryInvocationHandler<T : Entity<ID>, ID>(
 					queryInfo.distinct
 				)
 
-				// Check if method should return single entity or list
-				if (method.kotlinFunction?.let { queryParser.shouldReturnSingle(method.name, it.returnType) } == true) {
-					results.firstOrNull()
+				val finalResults = if (projectionClass != null) {
+					results.map { entity -> mapToProjection(entity, projectionClass) }
 				} else {
 					results
+				}
+
+				// Check if method should return single entity or list
+				if (method.kotlinFunction?.let { queryParser.shouldReturnSingle(method.name, it.returnType) } == true) {
+					finalResults.firstOrNull()
+				} else {
+					finalResults
 				}
 			}
 
@@ -119,5 +145,17 @@ class RepositoryInvocationHandler<T : Entity<ID>, ID>(
 				}
 			}
 		}
+	}
+
+	private fun <P : Any> mapToProjection(entity: Any, projectionClass: KClass<P>): P {
+		val entityProperties = entity::class.memberProperties.associateBy { it.name }
+		val constructor = projectionClass.primaryConstructor
+			?: throw IllegalArgumentException("Projection class ${projectionClass.simpleName} must have a primary constructor")
+
+		val args = constructor.parameters.associateWith { param ->
+			entityProperties[param.name]?.call(entity)
+		}
+
+		return constructor.callBy(args)
 	}
 }
