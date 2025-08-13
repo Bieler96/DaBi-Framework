@@ -15,6 +15,8 @@ import kotlin.reflect.full.isSubclassOf
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.kotlinFunction
+import logging.Logger
+import logging.LogManager
 
 class RepositoryInvocationHandler<T : Entity<ID>, ID>(
 	private val dataProvider: DataProvider<T, ID>,
@@ -122,6 +124,10 @@ class RepositoryInvocationHandler<T : Entity<ID>, ID>(
 
 			QueryType.EXISTS -> {
 				dataProvider.existsByQuerySpec(queryInfo.querySpec, parameters.toList())
+			}
+
+			QueryType.AGGREGATE -> {
+				dataProvider.aggregate(queryInfo, parameters.filterNot { it is Continuation<*> })
 			}
 
 			QueryType.CUSTOM -> {

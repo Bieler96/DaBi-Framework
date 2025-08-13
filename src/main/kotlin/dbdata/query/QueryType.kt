@@ -5,5 +5,6 @@ enum class QueryType {
 	COUNT,
 	DELETE,
 	EXISTS,
-	CUSTOM
+	CUSTOM,
+	AGGREGATE
 }

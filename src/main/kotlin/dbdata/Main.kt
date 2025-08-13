@@ -111,6 +111,13 @@ interface UserRepository : CrudRepository<User, Long> {
 
 	@Query("SELECT * FROM users WHERE age > :minAge")
 	suspend fun findUsersOlderThan(minAge: Int): List<User>
+
+	// Aggregation Queries
+	suspend fun sumAge(): Number?
+	suspend fun avgAge(): Number?
+	suspend fun minAge(): Int?
+	suspend fun maxAge(): Int?
+	suspend fun countUsersByAge(): Map<Int, Long>
 }
 
 @Repository
@@ -310,4 +317,21 @@ suspend fun main() {
 	println("\n--- Testing Projection ---")
 	val userDtos = userRepository.findByNameAsUserDto("John Doe")
 	println("User DTOs for 'John Doe': $userDtos")
+
+	// --- Test Aggregation ---
+	println("\n--- Testing Aggregation ---")
+	val totalAge = userRepository.sumAge()
+	println("Sum of all ages: $totalAge")
+
+	val averageAge = userRepository.avgAge()
+	println("Average age: $averageAge")
+
+	val minAge = userRepository.minAge()
+	println("Minimum age: $minAge")
+
+	val maxAge = userRepository.maxAge()
+	println("Maximum age: $maxAge")
+
+	val usersGroupedByAge = userRepository.countUsersByAge()
+	println("Users grouped by age: $usersGroupedByAge")
 }

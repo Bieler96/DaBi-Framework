@@ -3,6 +3,7 @@ package dbdata.dataprovider
 import dbdata.Entity
 import dbdata.query.QuerySpec
 import dbdata.query.Pageable
+import dbdata.query.QueryInfo
 import dbdata.query.Sort
 import kotlin.reflect.KClass
 
@@ -29,4 +30,5 @@ abstract class DataProvider<T : Entity<ID>, ID> {
 	abstract suspend fun countByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long
 	abstract suspend fun deleteByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long
 	abstract suspend fun existsByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Boolean
+	abstract suspend fun aggregate(queryInfo: QueryInfo, parameters: List<Any>): Any?
 }

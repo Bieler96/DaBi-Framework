@@ -1,5 +1,7 @@
 package dbdata.query
 
+import dbdata.query.AggregationFunction
+
 data class QueryInfo(
 	val type: QueryType,
 	val property: String,
@@ -7,5 +9,7 @@ data class QueryInfo(
 	val sort: Sort? = null,
 	val limit: Int? = null,
 	val offset: Long? = null,
-	val distinct: Boolean = false
+	val distinct: Boolean = false,
+	val aggregationFunction: AggregationFunction? = null,
+	val groupByProperty: String? = null
 )

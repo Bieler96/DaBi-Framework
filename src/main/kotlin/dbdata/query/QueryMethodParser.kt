@@ -10,8 +10,29 @@ class QueryMethodParser {
 			methodName.startsWith("findDistinctBy") -> Triple(QueryType.FIND, methodName.removePrefix("findDistinctBy"), true)
 			methodName.startsWith("findBy") -> Triple(QueryType.FIND, methodName.removePrefix("findBy"), false)
 			methodName.startsWith("countBy") -> Triple(QueryType.COUNT, methodName.removePrefix("countBy"), false)
+			methodName.startsWith("count") -> {
+				val groupByRegex = "^count(.*)By([A-Z].*)\$".toRegex()
+				val match = groupByRegex.find(methodName)
+				if (match != null) {
+					val (entityPart, groupByPart) = match.destructured
+					val groupByProperty = extractPropertyName(groupByPart)
+					val querySpec = QuerySpec(emptyList(), LogicalOperator.AND) // No conditions for now in this form
+					return QueryInfo(
+						type = QueryType.AGGREGATE,
+						property = "*", // what to count
+						aggregationFunction = AggregationFunction.COUNT,
+						groupByProperty = groupByProperty,
+						querySpec = querySpec
+					)
+				}
+				return QueryInfo(QueryType.CUSTOM, methodName)
+			}
 			methodName.startsWith("deleteBy") -> Triple(QueryType.DELETE, methodName.removePrefix("deleteBy"), false)
 			methodName.startsWith("existsBy") -> Triple(QueryType.EXISTS, methodName.removePrefix("existsBy"), false)
+			methodName.startsWith("sum") -> return parseAggregation(methodName, "sum", AggregationFunction.SUM)
+			methodName.startsWith("avg") -> return parseAggregation(methodName, "avg", AggregationFunction.AVG)
+			methodName.startsWith("min") -> return parseAggregation(methodName, "min", AggregationFunction.MIN)
+			methodName.startsWith("max") -> return parseAggregation(methodName, "max", AggregationFunction.MAX)
 			else -> return QueryInfo(QueryType.CUSTOM, methodName)
 		}
 
@@ -50,6 +71,22 @@ class QueryMethodParser {
 		// Debug output
 		println("DEBUG: Parsed method '$methodName' -> queryInfo: $queryInfo")
 		return queryInfo
+	}
+
+	private fun parseAggregation(methodName: String, prefix: String, aggFunc: AggregationFunction): QueryInfo {
+		val rest = methodName.removePrefix(prefix)
+		val parts = rest.split("By")
+		val propertyToAggregate = extractPropertyName(parts[0])
+		val queryPart = if (parts.size > 1) parts[1] else ""
+
+		val querySpec = if (queryPart.isNotEmpty()) parseQuerySpec(queryPart) else QuerySpec(emptyList(), LogicalOperator.AND)
+
+		return QueryInfo(
+			type = QueryType.AGGREGATE,
+			property = propertyToAggregate,
+			aggregationFunction = aggFunc,
+			querySpec = querySpec
+		)
 	}
 
 	private fun parseSort(sortPart: String): Sort {

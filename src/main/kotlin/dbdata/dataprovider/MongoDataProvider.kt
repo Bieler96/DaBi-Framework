@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.toList
 import java.time.LocalDateTime
 import org.bson.Document
 import com.mongodb.client.model.Updates
+import dbdata.query.AggregationFunction
+import dbdata.query.QueryInfo
 import kotlin.reflect.KClass
 
 class MongoDataProvider<T : Entity<String>>(
@@ -190,6 +192,10 @@ class MongoDataProvider<T : Entity<String>>(
 			return existsByProperty(querySpec.conditions[0].property, parameters[0])
 		}
 		return false
+	}
+
+	override suspend fun aggregate(queryInfo: QueryInfo, parameters: List<Any>): Any? {
+		TODO("Not yet implemented")
 	}
 
 	private fun applySort(findFlow: FindFlow<T>, sort: Sort): FindFlow<T> {
