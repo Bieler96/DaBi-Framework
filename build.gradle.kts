@@ -1,5 +1,6 @@
 plugins {
 	kotlin("jvm") version "2.2.0"
+	kotlin("plugin.serialization") version "2.2.0"
 	application
 }
 
@@ -15,6 +16,7 @@ repositories {
 }
 
 dependencies {
+	implementation("io.github.classgraph:classgraph:4.8.165")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	testImplementation(kotlin("test"))
 	testImplementation("org.mockito:mockito-core:5.12.0")
@@ -32,6 +34,14 @@ dependencies {
 	implementation("org.mongodb:mongodb-driver-kotlin-coroutine")
 	implementation("org.mongodb:mongodb-driver-kotlin-sync")
 	implementation("org.mongodb:bson-kotlinx")
+
+	// ktor
+	implementation("io.ktor:ktor-server-content-negotiation:3.2.2")
+	implementation("io.ktor:ktor-server-core:3.2.2")
+	implementation("io.ktor:ktor-server-cors:3.2.2")
+	implementation("io.ktor:ktor-server-netty:3.2.2")
+	implementation("io.ktor:ktor-server-config-yaml:3.2.2")
+	implementation("io.ktor:ktor-serialization-kotlinx-json:3.2.2")
 }
 
 tasks.test {
