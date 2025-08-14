@@ -36,6 +36,7 @@ dependencies {
 	implementation("org.mongodb:bson-kotlinx")
 
 	// ktor
+	implementation("io.ktor:ktor-server-status-pages:3.2.2")
 	implementation("io.ktor:ktor-server-content-negotiation:3.2.2")
 	implementation("io.ktor:ktor-server-core:3.2.2")
 	implementation("io.ktor:ktor-server-cors:3.2.2")
