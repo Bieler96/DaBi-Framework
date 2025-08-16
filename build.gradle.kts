@@ -92,21 +92,21 @@ tasks.register("release") {
 
         // Git add, commit, push
         exec {
-            commandLine("git", "add", buildFile.absolutePath)
+            commandLine("/usr/bin/git", "add", buildFile.absolutePath)
         }
         exec {
-            commandLine("git", "commit", "-m", "Release $newVersion")
+            commandLine("/usr/bin/git", "commit", "-m", "Release $newVersion")
         }
         exec {
-            commandLine("git", "push")
+            commandLine("/usr/bin/git", "push")
         }
 
         // Git tag and push tag
         exec {
-            commandLine("git", "tag", newVersion)
+            commandLine("/usr/bin/git", "tag", newVersion)
         }
         exec {
-            commandLine("git", "push", "origin", newVersion)
+            commandLine("/usr/bin/git", "push", "origin", newVersion)
         }
 
         println("Successfully released version $newVersion")
