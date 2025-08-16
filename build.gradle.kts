@@ -1,3 +1,6 @@
+import java.io.BufferedReader
+import java.io.InputStreamReader
+
 plugins {
     kotlin("jvm") version "2.2.0"
     kotlin("plugin.serialization") version "2.2.0"
@@ -71,7 +74,7 @@ tasks.register("release") {
         var newVersion = project.findProperty("newVersion") as String?
         if (newVersion == null) {
             print("Please enter the new version (e.g., v1.0.2): ")
-            val reader = java.io.BufferedReader(java.io.InputStreamReader(System.`in`))
+            val reader = BufferedReader(InputStreamReader(System.`in`))
             newVersion = reader.readLine()
         }
 
