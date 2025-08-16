@@ -68,10 +68,17 @@ publishing {
 
 tasks.register("release") {
     doLast {
-        val newVersion = project.findProperty("newVersion") as String?
+        var newVersion = project.findProperty("newVersion") as String?
         if (newVersion == null) {
-            throw GradleException("Please provide a version with -PnewVersion=<your-version>")
+            print("Please enter the new version (e.g., v1.0.2): ")
+            newVersion = System.console().readLine()
         }
+
+        if (newVersion.isNullOrBlank()) {
+            throw GradleException("Version cannot be empty.")
+        }
+
+        println("Releasing version: $newVersion")
 
         // Update build.gradle.kts
         val buildFile = project.buildFile
