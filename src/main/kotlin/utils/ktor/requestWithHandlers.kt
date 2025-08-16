@@ -1,6 +1,6 @@
 package utils.ktor
 
-import de.bieler.ktor.exception.UnexpectedStatusException
+import utils.exception.UnexpectedStatusException
 import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*

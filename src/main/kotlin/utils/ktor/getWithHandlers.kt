@@ -1,11 +1,11 @@
 package utils.ktor
 
-import de.bieler.ktor.exception.UnexpectedStatusException
 import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import logging.LogManager
+import utils.exception.UnexpectedStatusException
 import kotlin.time.measureTimedValue
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.github.Bieler96.DaBi-Framework"
-version = "1.0-SNAPSHOT"
+version = "v1.0.1"
 
 repositories {
     mavenCentral()
