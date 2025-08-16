@@ -4,7 +4,7 @@ plugins {
     `maven-publish`
 }
 
-group = "com.github.<IhrBenutzername>.DaBi-Framework"
+group = "com.github.Bieler96.DaBi-Framework"
 version = "1.0-SNAPSHOT"
 
 repositories {
