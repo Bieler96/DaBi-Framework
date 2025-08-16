@@ -10,7 +10,11 @@ data class PrioritizedEvent<T>(
 	val result: CompletableDeferred<Result<T>>,
 	val timestamp: Long = System.currentTimeMillis()
 ) : Comparable<PrioritizedEvent<T>> {
+	/**
+	 * Compares this event with another for priority ordering.
+	 * Higher priority values are considered "lesser" to ensure they are at the head of the min-heap PriorityQueue.
+	 */
 	override fun compareTo(other: PrioritizedEvent<T>): Int {
-		return this.priority.compareTo(other.priority)
+		return other.priority.compareTo(this.priority)
 	}
 }

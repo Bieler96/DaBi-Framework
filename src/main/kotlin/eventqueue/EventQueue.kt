@@ -1,247 +1,159 @@
 package eventqueue
 
+import eventqueue.exception.EventQueueTimeoutException
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.PriorityQueue
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.Executors
 
 /**
- * A class representing an event queue with prioritization and timeout handling.
+ * An idiomatic Kotlin event queue using Coroutines and Flows.
  *
- * This class allows enqueuing events with a specified priority and timeout.
- * It processes events in the order of their priority and discards events that have timed out.
- * The class also provides methods to transform and filter events before emitting them.
- * It maintains statistics on the number of processed and discarded events, as well as the total processing time.
+ * This queue processes events asynchronously based on priority. It supports timeouts, retries,
+ * and custom transformations or filtering logic provided as lambdas.
  *
  * @param T The type of events to be processed.
  * @param globalTimeoutMillis The default timeout for events in milliseconds.
- * @param batchSize The number of events to process in a batch.
+ * @param coroutineScope The CoroutineScope in which to run the event processing. Defaults to a scope with Dispatchers.Default.
+ * @param transformer A suspendable lambda to transform an event before processing.
+ * @param filter A suspendable lambda to filter an event. If it returns false, the event is discarded.
  */
 class EventQueue<T>(
-	private val globalTimeoutMillis: Long = 5000,
-	private val batchSize: Int = 10,
+    private val globalTimeoutMillis: Long = 5000,
+    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    private val transformer: suspend (T) -> T = { it },
+    private val filter: suspend (T) -> Boolean = { true }
 ) {
-	private val subQueues = mutableMapOf<Int, PriorityQueue<PrioritizedEvent<T>>>()
-	private val _events = MutableSharedFlow<T>()
-	val events: SharedFlow<T> = _events
-	val deadLetterQueue = mutableListOf<T>()
-	private val customDispatcher = Executors.newFixedThreadPool(4).asCoroutineDispatcher()
-	private val processorScope = CoroutineScope(customDispatcher)
+    private val queue = PriorityQueue<PrioritizedEvent<T>>()
+    private val mutex = Mutex()
+    private val newEventSignal = Channel<Unit>(Channel.CONFLATED)
 
-	// monitoring
-	private val processedCount = AtomicInteger(0)
-	private val discardedCount = AtomicInteger(0)
-	private val retriedCount = AtomicInteger(0)
-	private val totalProcessingTime = AtomicLong(0)
-	private val totalWaitTime = AtomicLong(0)
-	private val mutex = Mutex()
-	private val batchQueue = mutableListOf<PrioritizedEvent<T>>()
+    private val _processedEvents = MutableSharedFlow<T>()
+    val processedEvents: SharedFlow<T> = _processedEvents.asSharedFlow()
 
-	/**
-	 * Represents a prioritized event with a timestamp and a timeout.
-	 */
-	private var processorJob = processorScope.launch {
-		while (isActive) {
-			processBatch(stopWhenEmpty = true)  // Stoppe, wenn keine Events mehr da sind
-		}
-	}
+    val deadLetterQueue = mutableListOf<PrioritizedEvent<T>>()
 
-	/**
-	 * Enqueues an event with a given priority and timeout.
-	 *
-	 * @param event The event to be enqueued.
-	 * @param priority The priority of the event (default is 0).
-	 * @param timeoutMillis The timeout for the event in milliseconds (default is globalTimeoutMillis).
-	 */
-	suspend fun enqueue(
-		event: T,
-		priority: Int = 0,
-		timeoutMillis: Long = globalTimeoutMillis,
-		retries: Int = 3
-	): CompletableDeferred<Result<T>> {
-		val result = CompletableDeferred<Result<T>>()
-		val prioritizedEvent = PrioritizedEvent(priority, event, timeoutMillis, retries, result)
+    // Monitoring
+    private val processedCount = AtomicInteger(0)
+    private val discardedCount = AtomicInteger(0)
+    private val retriedCount = AtomicInteger(0)
+    private val totalProcessingTime = AtomicLong(0)
+    private val totalWaitTime = AtomicLong(0)
 
-		mutex.withLock {
-			// Prüfe, ob die Warteschlange für diese Priorität existiert und Events hinzufügt
-			val queue = subQueues.getOrPut(priority) { PriorityQueue() }
-			queue.add(prioritizedEvent)
-//			println("Event enqueued mit Priorität $priority: $event")  // Debugging
-		}
+    init {
+        startEventProcessor()
+    }
 
-		// Start the processing if it was stopped
-		if (processorJob.isCompleted || processorJob.isCancelled) {
-			startProcessing()
-		}
+    private fun startEventProcessor() {
+        coroutineScope.launch {
+            for (signal in newEventSignal) {
+                while (coroutineContext.isActive) {
+                    val event = getNextEvent() ?: break
+                    processEvent(event) // Process sequentially
+                }
+            }
+        }
+    }
 
-		return result
-	}
+    private suspend fun getNextEvent(): PrioritizedEvent<T>? = mutex.withLock {
+        queue.poll()
+    }
 
-	private fun startProcessing() {
-		if (processorJob.isCompleted || processorJob.isCancelled) {
-//			println("Starte Verarbeitung...")
-			processorJob = processorScope.launch {
-				while (isActive) {
-					processBatch()
-				}
-			}
-		} else {
-//			println("Verarbeitung läuft bereits.")
-		}
-	}
+    /**
+     * Enqueues an event and waits for its processing to complete.
+     *
+     * @param event The event to enqueue.
+     * @param priority The priority of the event. Higher numbers are processed first.
+     * @param timeoutMillis Timeout for this specific event.
+     * @param retries Number of retries upon failure.
+     * @return A Result object indicating success or failure.
+     */
+    suspend fun enqueue(
+        event: T,
+        priority: Int = 0,
+        timeoutMillis: Long = globalTimeoutMillis,
+        retries: Int = 3
+    ): Result<T> {
+        val resultDeferred = CompletableDeferred<Result<T>>()
+        val prioritizedEvent = PrioritizedEvent(priority, event, timeoutMillis, retries, resultDeferred)
 
-	private suspend fun processBatch(stopWhenEmpty: Boolean = false) {
-		val batch = mutex.withLock {
-			// Debugging: Überprüfe, ob Events in den Warteschlangen vorhanden sind
-			val highestPriority = subQueues.keys.maxOrNull()
-//			println("Überprüfe Warteschlange mit Priorität $highestPriority")  // Debugging
+        mutex.withLock {
+            queue.add(prioritizedEvent)
+        }
+        newEventSignal.send(Unit)
 
-			val queue = highestPriority?.let { subQueues[it] }
-			val events = queue?.take(batchSize) ?: emptyList()
+        return resultDeferred.await()
+    }
 
-			if (events.isEmpty()) {
-//				println("Keine Events zum Verarbeiten in Warteschlange mit Priorität $highestPriority.")  // Debugging
-			}
+    private suspend fun processEvent(event: PrioritizedEvent<T>) {
+        val startTime = System.currentTimeMillis()
+        totalWaitTime.addAndGet(startTime - event.timestamp)
 
-			batchQueue.clear()
-			batchQueue.addAll(events)
-			events
-		}
+        try {
+            withTimeoutOrNull(event.timeoutMillis) {
+                val transformedEvent = transformer(event.event)
+                if (filter(transformedEvent)) {
+                    _processedEvents.emit(transformedEvent)
+                    event.result.complete(Result.success(transformedEvent))
+                    processedCount.incrementAndGet()
+                } else {
+                    event.result.complete(Result.failure(Exception("Event filtered out")))
+                    discardedCount.incrementAndGet()
+                }
+            } ?: handleFailure(event, EventQueueTimeoutException("Event timed out after ${event.timeoutMillis}ms"))
+        } catch (e: Exception) {
+            handleFailure(event, e)
+        } finally {
+            val duration = System.currentTimeMillis() - startTime
+            totalProcessingTime.addAndGet(duration)
+        }
+    }
 
-		if (batch.isEmpty()) {
-			if (stopWhenEmpty) {
-//				println("Keine Events zum Verarbeiten. Verarbeitung wird gestoppt.")  // Debugging
-				stopProcessing()
-			} else {
-//				println("Keine Events zum Verarbeiten. Warten...")  // Debugging
-				delay(1000)
-			}
-			return
-		}
+    private suspend fun handleFailure(event: PrioritizedEvent<T>, exception: Exception) {
+        if (event.retriesLeft > 0) {
+            retriedCount.incrementAndGet()
+            // Re-queue with the same result deferred. The original caller will wait for the retry.
+            val retryEvent = event.copy(retriesLeft = event.retriesLeft - 1)
+            mutex.withLock {
+                queue.add(retryEvent)
+            }
+            newEventSignal.send(Unit)
+        } else {
+            discardedCount.incrementAndGet()
+            deadLetterQueue.add(event)
+            event.result.complete(Result.failure(exception))
+        }
+    }
 
-//		println("Verarbeite Batch mit ${batch.size} Events.")  // Debugging
+    /**
+     * Returns a map of the current queue statistics.
+     */
+    fun getStats(): Map<String, Number> {
+        val processed = processedCount.get()
+        val avgProcessingTime = if (processed > 0) totalProcessingTime.get() / processed else 0
+        val avgWaitTime = if (processed > 0) totalWaitTime.get() / processed else 0
 
-		for (event in batch) {
-//			println("Verarbeite Event: $event")  // Debugging
-			processEvent(event)
-		}
+        return mapOf(
+            "processed" to processed,
+            "discarded" to discardedCount.get(),
+            "retried" to retriedCount.get(),
+            "deadLetterQueueSize" to deadLetterQueue.size,
+            "averageProcessingTimeMs" to avgProcessingTime,
+            "averageWaitTimeMs" to avgWaitTime
+        )
+    }
 
-		delay(100)
-	}
-
-	private suspend fun processEvent(event: PrioritizedEvent<T>) {
-		val startTime = System.currentTimeMillis()
-		try {
-			val transformedEvent = transformEvent(event.event)
-			if (filterEvent(transformedEvent)) {
-				_events.emit(transformedEvent)
-				event.result.complete(Result.success(transformedEvent))
-				processedCount.incrementAndGet()
-			} else {
-//				println("Ereignis gefiltert: $transformedEvent")
-			}
-		} catch (e: Exception) {
-			handleFailure(event, e)
-		} finally {
-			val duration = System.currentTimeMillis() - startTime
-			totalProcessingTime.addAndGet(duration)
-			totalWaitTime.addAndGet(System.currentTimeMillis() - event.timestamp)
-		}
-	}
-
-	private suspend fun handleFailure(event: PrioritizedEvent<T>, exception: Exception) {
-//		println("Ereignis fehlgeschlagen: ${event.event}, Fehler: ${exception.message}")
-		if (event.retriesLeft > 0) {
-			retriedCount.incrementAndGet()
-			enqueue(event.event, event.priority, event.timeoutMillis, event.retriesLeft - 1)
-		} else {
-			deadLetterQueue.add(event.event)
-
-			if (deadLetterQueue.size > 50) {
-//				println("Warnung: Die Dead Letter Queue enthält viele Einträge (${deadLetterQueue.size}).")
-			}
-
-			event.result.complete(Result.failure(exception))
-		}
-	}
-
-	/**
-	 * Transforms an event.
-	 * Converts strings to uppercase.
-	 *
-	 * @param event The event to be transformed.
-	 * @return The transformed event.
-	 */
-	private fun transformEvent(event: T): T {
-		return if (event is String) event.uppercase() as T else event
-	}
-
-	/**
-	 * Filters an event.
-	 * Filters out empty strings.
-	 *
-	 * @param event The event to be filtered.
-	 * @return True if the event passes the filter, false otherwise.
-	 */
-	private fun filterEvent(event: T): Boolean {
-		return if (event is String) event.isNotEmpty() else true
-	}
-
-	/**
-	 * Logs the statistics of the event processing.
-	 */
-	fun logStats() {
-		println("Verarbeitete Ereignisse: ${processedCount.get()}")
-		println("Verworfene Ereignisse: ${discardedCount.get()}")
-		println("Erneut versuchte Ereignisse: ${retriedCount.get()}")
-		println("Dead Letter Queue: ${deadLetterQueue.size}")
-		println(
-			"Durchschnittliche Verarbeitungszeit: ${
-				totalProcessingTime.get() / (processedCount.get().coerceAtLeast(1))
-			} ms"
-		)
-		println(
-			"Durchschnittliche Wartezeit: ${
-				totalWaitTime.get() / (processedCount.get().coerceAtLeast(1))
-			} ms"
-		)
-	}
-
-	/**
-	 * Stops the event processing.
-	 */
-	fun stopProcessing() {
-		if (subQueues.values.all { it.isEmpty() }) {
-			processorJob.cancel()
-//			println("Verarbeitung gestoppt, da alle Warteschlangen leer sind.")
-		} else {
-//			println("Warteschlangen sind nicht leer, Verarbeitung wird fortgesetzt.")
-		}
-	}
-
-	private fun <T> PriorityQueue<T>.take(n: Int): List<T> {
-		val list = mutableListOf<T>()
-		repeat(n) {
-			if (isNotEmpty()) list.add(poll())
-		}
-		return list
-	}
-
-	private fun calculateTimeout(event: T): Long {
-		return when (event) {
-			is CriticalEvent -> 1000L // Kürzeres Timeout für kritische Events
-			else -> globalTimeoutMillis
-		}
-	}
-
-	private fun dynamicPriority(event: PrioritizedEvent<T>): Int {
-		return when (event.event) {
-			is CriticalEvent -> 10
-			else -> event.priority
-		}
-	}
+    /**
+     * Shuts down the event queue and cancels any ongoing processing.
+     */
+    fun shutdown() {
+        newEventSignal.close()
+        coroutineScope.cancel()
+    }
 }
