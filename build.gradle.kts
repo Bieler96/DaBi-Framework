@@ -65,3 +65,39 @@ publishing {
         }
     }
 }
+
+tasks.register("release") {
+    doLast {
+        val newVersion = project.findProperty("newVersion") as String?
+        if (newVersion == null) {
+            throw GradleException("Please provide a version with -PnewVersion=<your-version>")
+        }
+
+        // Update build.gradle.kts
+        val buildFile = project.buildFile
+        val buildFileContent = buildFile.readText()
+        val updatedBuildFileContent = buildFileContent.replaceFirst(Regex("version = \".*\""), "version = \"$newVersion\"")
+        buildFile.writeText(updatedBuildFileContent)
+
+        // Git add, commit, push
+        exec {
+            commandLine("git", "add", buildFile.absolutePath)
+        }
+        exec {
+            commandLine("git", "commit", "-m", "Release $newVersion")
+        }
+        exec {
+            commandLine("git", "push")
+        }
+
+        // Git tag and push tag
+        exec {
+            commandLine("git", "tag", newVersion)
+        }
+        exec {
+            commandLine("git", "push", "origin", newVersion)
+        }
+
+        println("Successfully released version $newVersion")
+    }
+}
