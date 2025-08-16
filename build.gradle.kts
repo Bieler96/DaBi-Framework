@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.github.Bieler96.DaBi-Framework"
-version = "v1.0.2"
+version = "v1.0.3"
 
 repositories {
     mavenCentral()
@@ -84,21 +84,26 @@ tasks.register("release") {
 
         println("Releasing version: $newVersion")
 
-        // Update build.gradle.kts
-        val buildFile = project.buildFile
-        val buildFileContent = buildFile.readText()
-        val updatedBuildFileContent = buildFileContent.replaceFirst(Regex("version = \".*\""), "version = \"$newVersion\"")
-        buildFile.writeText(updatedBuildFileContent)
+        val oldVersion = project.version
+        if (oldVersion == newVersion) {
+            println("Version is already $newVersion. Skipping commit.")
+        } else {
+            // Update build.gradle.kts
+            val buildFile = project.buildFile
+            val buildFileContent = buildFile.readText()
+            val updatedBuildFileContent = buildFileContent.replaceFirst(Regex("version = \".*\""), "version = \"$newVersion\"")
+            buildFile.writeText(updatedBuildFileContent)
 
-        // Git add, commit, push
-        exec {
-            commandLine("/usr/bin/git", "add", buildFile.absolutePath)
-        }
-        exec {
-            commandLine("/usr/bin/git", "commit", "-m", "Release $newVersion")
-        }
-        exec {
-            commandLine("/usr/bin/git", "push")
+            // Git add, commit, push
+            exec {
+                commandLine("/usr/bin/git", "add", buildFile.absolutePath)
+            }
+            exec {
+                commandLine("/usr/bin/git", "commit", "-m", "Release $newVersion")
+            }
+            exec {
+                commandLine("/usr/bin/git", "push")
+            }
         }
 
         // Git tag and push tag
