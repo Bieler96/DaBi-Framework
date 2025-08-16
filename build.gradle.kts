@@ -35,7 +35,7 @@ dependencies {
 	implementation("org.mongodb:mongodb-driver-kotlin-sync")
 	implementation("org.mongodb:bson-kotlinx")
 
-	// ktor
+	// ktor-server
 	implementation("io.ktor:ktor-server-status-pages:3.2.2")
 	implementation("io.ktor:ktor-server-content-negotiation:3.2.2")
 	implementation("io.ktor:ktor-server-core:3.2.2")
@@ -43,6 +43,11 @@ dependencies {
 	implementation("io.ktor:ktor-server-netty:3.2.2")
 	implementation("io.ktor:ktor-server-config-yaml:3.2.2")
 	implementation("io.ktor:ktor-serialization-kotlinx-json:3.2.2")
+
+	// ktor-client
+	implementation("io.ktor:ktor-client-core:3.2.2")
+	implementation("io.ktor:ktor-client-cio:3.2.2")
+	implementation("io.ktor:ktor-client-websockets:3.2.2")
 }
 
 tasks.test {
