@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.github.Bieler96.DaBi-Framework"
-version = "v1.0.1"
+version = "v1.0.2"
 
 repositories {
     mavenCentral()
@@ -107,6 +107,12 @@ tasks.register("release") {
         }
         exec {
             commandLine("/usr/bin/git", "push", "origin", newVersion)
+        }
+
+        // Create GitHub release
+        println("Creating GitHub release...")
+        exec {
+            commandLine("gh", "release", "create", newVersion, "--title", "Release $newVersion", "--notes", "Released version $newVersion")
         }
 
         println("Successfully released version $newVersion")
