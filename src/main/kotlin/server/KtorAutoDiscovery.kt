@@ -15,84 +15,92 @@ import kotlin.reflect.full.*
  * Discovers and registers controllers in the specified base package.
  * @param basePackage The package to scan for controllers.
  */
-fun Application.autoDiscoverRoutes(basePackage: String) {
-	routing {
-		val controllerClasses = ClassGraph()
-			.enableAllInfo()
-			.acceptPackages(basePackage)
-			.scan()
-			.getClassesWithAnnotation(Controller::class.java.name)
-			.loadClasses()
-			.map { it.kotlin }
+fun Application.autoDiscoverRoutes(basePackage: String, controllers: List<Any> = emptyList()) {
+    routing {
+        val controllerClasses = ClassGraph()
+            .enableAllInfo()
+            .acceptPackages(basePackage)
+            .scan()
+            .getClassesWithAnnotation(Controller::class.java.name)
+            .loadClasses()
+            .map { it.kotlin }
 
-		for (controllerClass in controllerClasses) {
-			val controllerInstance = controllerClass.primaryConstructor?.call()
-				?: throw IllegalStateException("Controller ${controllerClass.simpleName} must have a primary constructor.")
+        val allControllers = controllers.toMutableList()
 
-			val controllerPath = controllerClass.findAnnotation<Controller>()?.path ?: ""
+        for (controllerClass in controllerClasses) {
+            if (allControllers.none { it::class == controllerClass }) {
+                val controllerInstance = controllerClass.primaryConstructor?.call()
+                    ?: throw IllegalStateException("Controller ${controllerClass.simpleName} must have a primary constructor with no arguments or be provided manually.")
+                allControllers.add(controllerInstance)
+            }
+        }
 
-			for (function in controllerClass.declaredFunctions) {
-				val (httpMethod, path) = function.annotations.mapNotNull { annotation ->
-					when (annotation) {
-						is GetMapping -> HttpMethod.Get to annotation.path
-						is PostMapping -> HttpMethod.Post to annotation.path
-						is PutMapping -> HttpMethod.Put to annotation.path
-						is DeleteMapping -> HttpMethod.Delete to annotation.path
-						is PatchMapping -> HttpMethod.Patch to annotation.path
-						else -> null
-					}
-				}.firstOrNull() ?: continue
+        for (controllerInstance in allControllers) {
+            val controllerClass = controllerInstance::class
+            val controllerPath = controllerClass.findAnnotation<Controller>()?.path ?: ""
 
-				val fullPath = if (controllerPath.endsWith("/") || path.startsWith("/")) {
-					"$controllerPath$path"
-				} else {
-					"$controllerPath/$path"
-				}.replace(Regex("/+"), "/")
+            for (function in controllerClass.declaredFunctions) {
+                val (httpMethod, path) = function.annotations.mapNotNull { annotation ->
+                    when (annotation) {
+                        is GetMapping -> HttpMethod.Get to annotation.path
+                        is PostMapping -> HttpMethod.Post to annotation.path
+                        is PutMapping -> HttpMethod.Put to annotation.path
+                        is DeleteMapping -> HttpMethod.Delete to annotation.path
+                        is PatchMapping -> HttpMethod.Patch to annotation.path
+                        else -> null
+                    }
+                }.firstOrNull() ?: continue
 
-				route(fullPath, httpMethod) {
-					handle {
-						val callParameters = mutableMapOf<KParameter, Any?>()
-						function.instanceParameter?.let { callParameters[it] = controllerInstance }
+                val fullPath = if (controllerPath.endsWith("/") || path.startsWith("/")) {
+                    "$controllerPath$path"
+                } else {
+                    "$controllerPath/$path"
+                }.replace(Regex("/+"), "/")
 
-						for (param in function.valueParameters) {
-							val value = when {
-								param.hasAnnotation<Body>() -> {
-									val type = param.type
-									val classifier = type.classifier as? KClass<*>
-									if (classifier != null) {
-										call.receive(classifier)
-									} else {
-										throw IllegalStateException("Cannot receive body for type ${type.toString()}")
-									}
-								}
+                route(fullPath, httpMethod) {
+                    handle {
+                        val callParameters = mutableMapOf<KParameter, Any?>()
+                        function.instanceParameter?.let { callParameters[it] = controllerInstance }
 
-								param.hasAnnotation<PathParam>() -> {
-									val paramName = param.findAnnotation<PathParam>()!!.name
-									val rawValue = call.parameters[paramName]
-									convertParameter(rawValue, param.type.classifier as KClass<*>)
-								}
+                        for (param in function.valueParameters) {
+                            val value = when {
+                                param.hasAnnotation<Body>() -> {
+                                    val type = param.type
+                                    val classifier = type.classifier as? KClass<*>
+                                    if (classifier != null) {
+                                        call.receive(classifier)
+                                    } else {
+                                        throw IllegalStateException("Cannot receive body for type ${type.toString()}")
+                                    }
+                                }
 
-								param.hasAnnotation<QueryParam>() -> {
-									val paramName = param.findAnnotation<QueryParam>()!!.name
-									val rawValue = call.request.queryParameters[paramName]
-									convertParameter(rawValue, param.type.classifier as KClass<*>)
-								}
+                                param.hasAnnotation<PathParam>() -> {
+                                    val paramName = param.findAnnotation<PathParam>()!!.name
+                                    val rawValue = call.parameters[paramName]
+                                    convertParameter(rawValue, param.type.classifier as KClass<*>)
+                                }
 
-								param.type.isSubtypeOf(ApplicationCall::class.starProjectedType) -> call
-								else -> null
-							}
-							callParameters[param] = value
-						}
+                                param.hasAnnotation<QueryParam>() -> {
+                                    val paramName = param.findAnnotation<QueryParam>()!!.name
+                                    val rawValue = call.request.queryParameters[paramName]
+                                    convertParameter(rawValue, param.type.classifier as KClass<*>)
+                                }
 
-						val result = function.callSuspendBy(callParameters)
-						if (result != Unit && result != null) {
-							call.respond(result)
-						}
-					}
-				}
-			}
-		}
-	}
+                                param.type.isSubtypeOf(ApplicationCall::class.starProjectedType) -> call
+                                else -> null
+                            }
+                            callParameters[param] = value
+                        }
+
+                        val result = function.callSuspendBy(callParameters)
+                        if (result != Unit && result != null) {
+                            call.respond(result)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 private fun convertParameter(value: String?, type: KClass<*>): Any? {
