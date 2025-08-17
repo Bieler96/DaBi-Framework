@@ -1,8 +1,11 @@
 package server
 
+import auth.auto_config.Authenticated
+import auth.auto_config.configureAuthentication
 import io.github.classgraph.ClassGraph
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.authenticate
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -16,6 +19,7 @@ import kotlin.reflect.full.*
  * @param basePackage The package to scan for controllers.
  */
 fun Application.autoDiscoverRoutes(basePackage: String, controllers: List<Any> = emptyList()) {
+    configureAuthentication()
     routing {
         val controllerClasses = ClassGraph()
             .enableAllInfo()
@@ -57,7 +61,7 @@ fun Application.autoDiscoverRoutes(basePackage: String, controllers: List<Any> =
                     "$controllerPath/$path"
                 }.replace(Regex("/+"), "/")
 
-                route(fullPath, httpMethod) {
+                val routeHandler: Route.() -> Unit = {
                     handle {
                         val callParameters = mutableMapOf<KParameter, Any?>()
                         function.instanceParameter?.let { callParameters[it] = controllerInstance }
@@ -96,6 +100,18 @@ fun Application.autoDiscoverRoutes(basePackage: String, controllers: List<Any> =
                         if (result != Unit && result != null) {
                             call.respond(result)
                         }
+                    }
+                }
+
+                if (function.hasAnnotation<Authenticated>()) {
+                    authenticate {
+                        route(fullPath, httpMethod) {
+                            routeHandler()
+                        }
+                    }
+                } else {
+                    route(fullPath, httpMethod) {
+                        routeHandler()
                     }
                 }
             }
