@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.github.Bieler96.DaBi-Framework"
-version = "v1.0.4"
+version = "v1.0.5"
 
 repositories {
     mavenCentral()
@@ -21,6 +21,7 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.12.0")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.3.1")
     implementation("org.json:json:20231013")
+	implementation("commons-codec:commons-codec:1.15")
 
     // exposed
     implementation("org.jetbrains.exposed:exposed-core:1.0.0-beta-5")
@@ -42,6 +43,7 @@ dependencies {
     implementation("io.ktor:ktor-server-netty:3.2.2")
     implementation("io.ktor:ktor-server-config-yaml:3.2.2")
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.2.2")
+	implementation("io.ktor:ktor-server-auth-jwt-jvm:3.2.2")
 
     // ktor-client
     implementation("io.ktor:ktor-client-core:3.2.2")
