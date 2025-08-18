@@ -66,7 +66,45 @@ ktor {
 
 ### Dependencies
 
-The automatic configuration relies on a Dependency Injection (DI) container. You need to make sure that your implementations of `AuthService`, `TokenService`, and `HashingService` are bound in the DI container.
+The automatic configuration relies on a Dependency Injection (DI) container. You need to make sure that your implementations of `AuthService`, `TokenService`, `HashingService`, `UserRepository` and `TokenConfig` are bound in the DI container.
+
+Here is an example of how you can configure the dependencies:
+
+```kotlin
+import auth.AuthService
+import auth.UserRepository
+import di.DI
+import security.hashing.HashingService
+import security.hashing.SHA256HashingService
+import security.token.JwtTokenService
+import security.token.TokenService
+import security.token.provideTokenConfig
+
+fun Application.module() {
+    // ... other configurations
+
+    // Create and bind the TokenConfig
+    val tokenConfig = provideTokenConfig(environment)
+    DI.register(tokenConfig)
+
+    // Bind other services
+    DI.register<HashingService>(SHA256HashingService())
+    DI.register<TokenService>(JwtTokenService())
+    // Assuming you have a UserRepository implementation
+    DI.register<UserRepository>(MyUserRepository()) 
+
+    // Create and bind the AuthService
+    val authService = AuthService(
+        DI.get(), // HashingService
+        DI.get(), // TokenService
+        DI.get(), // UserRepository
+        DI.get()  // TokenConfig
+    )
+    DI.register(authService)
+
+    autoDiscoverRoutes("com.yourapp.package")
+}
+```
 
 ## 4. Usage
 

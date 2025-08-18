@@ -13,7 +13,8 @@ data class LoginResponse(val token: String)
 class AuthService(
     private val hashingService: HashingService,
     private val tokenService: TokenService,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val tokenConfig: TokenConfig
 ) {
 
     suspend fun register(request: RegisterRequest): User {
@@ -46,15 +47,15 @@ class AuthService(
         }
 
         val token = tokenService.generateToken(
-            TokenConfig(
-                issuer = "dabi-framework",
-                audience = "dabi-users",
-                expiresIn = 3600000,
-                secret = "very-secret-and-long-key"
-            ),
+            tokenConfig,
+            TokenClaim("userId", user.id.toString()),
             TokenClaim("email", user.email)
         )
 
         return LoginResponse(token)
+    }
+
+    suspend fun findUserById(id: String): User? {
+        return userRepository.findById(id.toInt())
     }
 }
