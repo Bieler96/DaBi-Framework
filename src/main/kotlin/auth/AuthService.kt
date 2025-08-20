@@ -1,5 +1,6 @@
 package auth
 
+import di.annotations.Injectable
 import security.hashing.HashingService
 import security.token.TokenClaim
 import security.token.TokenConfig
@@ -10,6 +11,7 @@ data class LoginRequest(val email: String, val password: String)
 
 data class LoginResponse(val token: String)
 
+@Injectable
 class AuthService(
     private val hashingService: HashingService,
     private val tokenService: TokenService,
