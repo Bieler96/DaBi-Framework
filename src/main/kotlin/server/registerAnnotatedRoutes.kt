@@ -10,7 +10,10 @@ import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.findAnnotation
 
 fun Application.registerAnnotatedRoutes(
-	vararg controllersPackages: String = arrayOf("de.bieler.controller")
+	vararg controllersPackages: String = arrayOf(
+		"de.bieler.controller",
+		"auth"
+	)
 ) {
 	routing {
 		// Passe das Package an, in dem sich deine Controller befinden
