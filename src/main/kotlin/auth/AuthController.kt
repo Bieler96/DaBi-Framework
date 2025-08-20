@@ -1,19 +1,19 @@
 package auth
 
-import server.annotations.Body
-import server.annotations.Controller
-import server.annotations.PostMapping
+import dabiserverextension.Controller
+import dabiserverextension.PostMapping
+import dabiserverextension.RequestBody
 
 @Controller("/auth")
 class AuthController(private val authService: AuthService) {
 
     @PostMapping("/register")
-    suspend fun register(@Body request: RegisterRequest): User {
+    suspend fun register(@RequestBody request: RegisterRequest): User {
         return authService.register(request)
     }
 
     @PostMapping("/login")
-    suspend fun login(@Body request: LoginRequest): LoginResponse? {
+    suspend fun login(@RequestBody request: LoginRequest): LoginResponse? {
         return authService.login(request)
     }
 }

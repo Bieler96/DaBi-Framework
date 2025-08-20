@@ -16,7 +16,6 @@ class AuthService(
     private val userRepository: UserRepository,
     private val tokenConfig: TokenConfig
 ) {
-
     suspend fun register(request: RegisterRequest): User {
         val saltedHash = hashingService.generateSaltedHash(request.password)
         val user = User(
