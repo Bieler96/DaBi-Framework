@@ -1,7 +1,6 @@
 package security.token
 
 import io.ktor.server.application.*
-import io.ktor.server.config.*
 
 fun provideTokenConfig(environment: ApplicationEnvironment): TokenConfig {
     val config = environment.config

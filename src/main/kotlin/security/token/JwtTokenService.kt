@@ -2,8 +2,10 @@ package security.token
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import di.annotations.Injectable
 import java.util.Date
 
+@Injectable
 class JwtTokenService : TokenService {
     override fun generateToken(config: TokenConfig, vararg claims: TokenClaim): String {
         var token = JWT.create()
