@@ -1,10 +1,11 @@
 package dbdata
 
+import java.time.Instant
 import java.time.LocalDateTime
 
 interface Auditable {
-    var createdAt: LocalDateTime?
-    var updatedAt: LocalDateTime?
+    var createdAt: Instant?
+    var updatedAt: Instant?
     var createdBy: String?
     var updatedBy: String?
 }
