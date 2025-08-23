@@ -2,9 +2,9 @@ package dbdata
 
 import java.time.Instant
 
-interface Auditable {
+interface Auditable<ID> {
     var createdAt: Instant?
     var updatedAt: Instant?
-    var createdBy: String?
-    var updatedBy: String?
+    var createdBy: ID?
+    var updatedBy: ID?
 }

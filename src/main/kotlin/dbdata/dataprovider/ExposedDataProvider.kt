@@ -19,7 +19,7 @@ import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.notInList
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.*
 import org.jetbrains.exposed.v1.jdbc.Query
-import org.jetbrains.exposed.v1.jdbc.transactions.experimental.newSuspendedTransaction
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.ZoneOffset
@@ -46,17 +46,17 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 	override fun getEntityClass(): KClass<T> = entityClass
 
-	override suspend fun save(entity: T): T = newSuspendedTransaction(db = database) {
+	override suspend fun save(entity: T): T = transaction(db = database) {
 		val now = Instant.now()
-		val currentUser = "system" // TODO: Replace with actual user from context
+		val currentUser = 0L // TODO: Replace with actual user from context
 
 		if (entity.id == null) {
 			// Insert new entity
 			val insertStatement = table.insert {
-				(entity as Auditable).createdAt = now
-				(entity as Auditable).updatedAt = now
-				(entity as Auditable).createdBy = currentUser
-				(entity as Auditable).updatedBy = currentUser
+				(entity as Auditable<Any>).createdAt = now
+				(entity as Auditable<Any>).updatedAt = now
+				(entity as Auditable<Any>).createdBy = currentUser
+				(entity as Auditable<Any>).updatedBy = currentUser
 				fillStatementFromEntity(it, entity, excludeId = true)
 			}
 			// Return entity with generated ID and populated audit fields
@@ -64,8 +64,8 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 			setEntityId(entity, generatedId)
 		} else {
 			// Update existing entity
-			(entity as Auditable).updatedAt = now
-			(entity as Auditable).updatedBy = currentUser
+			(entity as Auditable<Any>).updatedAt = now
+			(entity as Auditable<Any>).updatedBy = currentUser
 			val updatedRows = table.update({ idColumn eq entity.id!! }) {
 				fillStatementFromEntity(it, entity, excludeId = true)
 			}
@@ -84,28 +84,28 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		return saved
 	}
 
-	override suspend fun findById(id: ID): T? = newSuspendedTransaction(db = database) {
+	override suspend fun findById(id: ID): T? = transaction(db = database) {
 		findWithRelations(Op.build { idColumn eq id }).firstOrNull()
 	}
 
-	override suspend fun findAll(): List<T> = newSuspendedTransaction(db = database) {
+	override suspend fun findAll(): List<T> = transaction(db = database) {
 		findWithRelations(null)
 	}
 
-	override suspend fun findAll(pageable: Pageable): List<T> = newSuspendedTransaction(db = database) {
+	override suspend fun findAll(pageable: Pageable): List<T> = transaction(db = database) {
 		findWithRelations(null, pageable.sort, pageable.pageSize, pageable.offset)
 	}
 
-	override suspend fun findAll(sort: Sort): List<T> = newSuspendedTransaction(db = database) {
+	override suspend fun findAll(sort: Sort): List<T> = transaction(db = database) {
 		val query = table.selectAll()
 		applySort(query, sort).mapNotNull { mapRowToEntity(it, table, entityClass) }
 	}
 
-	override suspend fun deleteById(id: ID): Long = newSuspendedTransaction(db = database) {
+	override suspend fun deleteById(id: ID): Long = transaction(db = database) {
 		table.deleteWhere { idColumn eq id }.toLong()
 	}
 
-	override suspend fun delete(entity: T): Long = newSuspendedTransaction(db = database) {
+	override suspend fun delete(entity: T): Long = transaction(db = database) {
 		if (entity.id != null) {
 			table.deleteWhere { idColumn eq entity.id!! }.toLong()
 		} else {
@@ -113,7 +113,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		}
 	}
 
-	override suspend fun deleteAllInBatch(entities: Iterable<T>): Long = newSuspendedTransaction(db = database) {
+	override suspend fun deleteAllInBatch(entities: Iterable<T>): Long = transaction(db = database) {
 		val ids = entities.mapNotNull { it.id }
 		if (ids.isNotEmpty()) {
 			table.deleteWhere { idColumn inList ids }.toLong()
@@ -122,44 +122,44 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		}
 	}
 
-	override suspend fun deleteAll(): Long = newSuspendedTransaction(db = database) {
+	override suspend fun deleteAll(): Long = transaction(db = database) {
 		table.deleteAll().toLong()
 	}
 
-	override suspend fun count(): Long = newSuspendedTransaction(db = database) {
+	override suspend fun count(): Long = transaction(db = database) {
 		table.selectAll().count()
 	}
 
 	@Suppress("UNCHECKED_CAST")
 	override suspend fun findByProperty(property: String, value: Any): List<T> =
-		newSuspendedTransaction(db = database) {
+		transaction(db = database) {
 			val column = getColumnByName(property, propertyToColumnMap) as Column<Any>
 			table.selectAll().where { column eq value }.mapNotNull { mapRowToEntity(it, table, entityClass) }
 		}
 
 	@Suppress("UNCHECKED_CAST")
 	override suspend fun countByProperty(property: String, value: Any): Long =
-		newSuspendedTransaction(db = database) {
+		transaction(db = database) {
 			val column = getColumnByName(property, propertyToColumnMap) as Column<Any>
 			table.selectAll().where { column eq value }.count()
 		}
 
 	@Suppress("UNCHECKED_CAST")
 	override suspend fun deleteByProperty(property: String, value: Any): Long =
-		newSuspendedTransaction(db = database) {
+		transaction(db = database) {
 			val column = getColumnByName(property, propertyToColumnMap) as Column<Any>
 			table.deleteWhere { column eq value }.toLong()
 		}
 
 	@Suppress("UNCHECKED_CAST")
 	override suspend fun existsByProperty(property: String, value: Any): Boolean =
-		newSuspendedTransaction(db = database) {
+		transaction(db = database) {
 			val column = getColumnByName(property, propertyToColumnMap) as Column<Any>
 			table.selectAll().where { column eq value }.limit(1).count() > 0
 		}
 
 	override suspend fun executeCustomQuery(query: String, params: Map<String, Any>): List<T> =
-		newSuspendedTransaction(db = database) {
+		transaction(db = database) {
 			val results = mutableListOf<T>()
 			var processedQuery = query
 
@@ -194,7 +194,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		distinct: Boolean,
 		projectionClass: KClass<*>?
 	): List<Any> =
-		newSuspendedTransaction(db = database) {
+		transaction(db = database) {
 			val (whereClause, currentSource) = buildWhereClause(querySpec, parameters)
 			val query = currentSource.selectAll().where { whereClause }.withDistinct(distinct)
 
@@ -210,25 +210,25 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		}
 
 	override suspend fun countByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long =
-		newSuspendedTransaction(db = database) {
+		transaction(db = database) {
 			val (whereClause, currentSource) = buildWhereClause(querySpec, parameters)
 			currentSource.selectAll().where { whereClause }.count()
 		}
 
 	override suspend fun deleteByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Long =
-		newSuspendedTransaction(db = database) {
+		transaction(db = database) {
 			val (whereClause, _) = buildWhereClause(querySpec, parameters)
 			table.deleteWhere { whereClause }.toLong()
 		}
 
 	override suspend fun existsByQuerySpec(querySpec: QuerySpec, parameters: List<Any>): Boolean =
-		newSuspendedTransaction(db = database) {
+		transaction(db = database) {
 			val (whereClause, currentSource) = buildWhereClause(querySpec, parameters)
 			currentSource.selectAll().where { whereClause }.limit(1).count() > 0
 		}
 
 	override suspend fun aggregate(queryInfo: QueryInfo, parameters: List<Any>): Any? =
-		newSuspendedTransaction(db = database) {
+		transaction(db = database) {
 			val (whereClause, currentSource) = buildWhereClause(queryInfo.querySpec, parameters)
 
 			if (queryInfo.groupByProperty != null) {
@@ -495,6 +495,8 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 					val value = parameters[parameterIndex++].toString()
 					(column as Column<String>) like "%${"$"}{value}%"
 				}
+
+
 
 				QueryOperator.CONTAINING_IGNORE_CASE -> {
 					val value = parameters[parameterIndex++].toString()

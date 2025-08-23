@@ -15,8 +15,8 @@ data class User(
     val blocked: Boolean,
     override var createdAt: Instant? = null,
     override var updatedAt: Instant? = null,
-    override var createdBy: String? = null,
-    override var updatedBy: String? = null
+    override var createdBy: Int? = null,
+    override var updatedBy: Int? = null
 ) : Entity<Int>
 
 @Repository

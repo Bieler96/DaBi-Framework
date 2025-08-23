@@ -32,16 +32,16 @@ class MongoDataProvider<T : Entity<String>>(
 
         if (entity.id == null) {
             // Insert new entity
-            (entity as Auditable).createdAt = now
-            (entity as Auditable).updatedAt = now
-            (entity as Auditable).createdBy = currentUser
-            (entity as Auditable).updatedBy = currentUser
+            (entity as Auditable<String>).createdAt = now
+            (entity as Auditable<String>).updatedAt = now
+            (entity as Auditable<String>).createdBy = currentUser
+            (entity as Auditable<String>).updatedBy = currentUser
             collection.insertOne(entity)
             return entity
         } else {
             // Update existing
-            (entity as Auditable).updatedAt = now
-            (entity as Auditable).updatedBy = currentUser
+            (entity as Auditable<String>).updatedAt = now
+            (entity as Auditable<String>).updatedBy = currentUser
             val result = collection.replaceOne(Filters.eq("_id", entity.id!!), entity)
             if (result.matchedCount == 0L) {
                 throw EntityNotFoundException(entityClass.simpleName ?: "Entity", entity.id!!)
@@ -193,10 +193,10 @@ class MongoDataProvider<T : Entity<String>>(
         }
 
         val groupStage = when (aggregationFunction) {
-            AggregationFunction.SUM -> Aggregates.group(null, Accumulators.sum("sum", "\${queryInfo.property}"))
-            AggregationFunction.AVG -> Aggregates.group(null, Accumulators.avg("avg", "\${queryInfo.property}"))
-            AggregationFunction.MIN -> Aggregates.group(null, Accumulators.min("min", "\${queryInfo.property}"))
-            AggregationFunction.MAX -> Aggregates.group(null, Accumulators.max("max", "\${queryInfo.property}"))
+            AggregationFunction.SUM -> Aggregates.group(null, Accumulators.sum("sum", "\${'$'}{queryInfo.property}"))
+            AggregationFunction.AVG -> Aggregates.group(null, Accumulators.avg("avg", "\${'$'}{queryInfo.property}"))
+            AggregationFunction.MIN -> Aggregates.group(null, Accumulators.min("min", "\${'$'}{queryInfo.property}"))
+            AggregationFunction.MAX -> Aggregates.group(null, Accumulators.max("max", "\${'$'}{queryInfo.property}"))
             else -> throw IllegalStateException("Should not happen")
         }
 
@@ -233,7 +233,7 @@ class MongoDataProvider<T : Entity<String>>(
                 QueryOperator.CONTAINING -> Filters.regex(condition.property, ".*$value.*")
                 QueryOperator.CONTAINING_IGNORE_CASE -> Filters.regex(condition.property, ".*$value.*", "i")
                 QueryOperator.STARTING_WITH -> Filters.regex(condition.property, "^$value")
-                QueryOperator.ENDING_WITH -> Filters.regex(condition.property, "$value$")
+                QueryOperator.ENDING_WITH -> Filters.regex(condition.property, "$value${'$'}")
                 QueryOperator.IS_NULL -> Filters.eq(condition.property, null)
                 QueryOperator.IS_NOT_NULL -> Filters.ne(condition.property, null)
                 QueryOperator.IN -> Filters.`in`(condition.property, value as List<*>)

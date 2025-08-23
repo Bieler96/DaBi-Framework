@@ -19,8 +19,8 @@ class User(
 	val active: Boolean = true,
 	override var createdAt: Instant? = null,
 	override var updatedAt: Instant? = null,
-	override var createdBy: String? = null,
-	override var updatedBy: String? = null
+	override var createdBy: Long? = null,
+	override var updatedBy: Long? = null
 ) : Entity<Long> {
 	@OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
 	var posts: List<Post> = emptyList()
@@ -49,8 +49,8 @@ class Post(
 	val userId: Long,
 	override var createdAt: Instant? = null,
 	override var updatedAt: Instant? = null,
-	override var createdBy: String? = null,
-	override var updatedBy: String? = null
+	override var createdBy: Long? = null,
+	override var updatedBy: Long? = null
 ) : Entity<Long> {
 	@ManyToOne(fetch = FetchType.EAGER)
 	@JoinColumn(name = "user_id", referencedColumnName = "id")
@@ -135,8 +135,8 @@ object UsersTable : Table("users") {
 	val active = bool("active").default(true)
 	val createdAt = timestamp("created_at").nullable()
 	val updatedAt = timestamp("updated_at").nullable()
-	val createdBy = varchar("created_by", 255).nullable()
-	val updatedBy = varchar("updated_by", 255).nullable()
+	val createdBy = long("created_by").nullable()
+	val updatedBy = long("updated_by").nullable()
 
 	override val primaryKey = PrimaryKey(id)
 }
@@ -148,8 +148,8 @@ object PostsTable : Table("posts") {
 	val userId = long("user_id").references(UsersTable.id)
 	val createdAt = timestamp("created_at").nullable()
 	val updatedAt = timestamp("updated_at").nullable()
-	val createdBy = varchar("created_by", 255).nullable()
-	val updatedBy = varchar("updated_by", 255).nullable()
+	val createdBy = long("created_by").nullable()
+	val updatedBy = long("updated_by").nullable()
 	override val primaryKey = PrimaryKey(id)
 }
 
