@@ -48,7 +48,10 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 	override suspend fun save(entity: T): T = transaction(db = database) {
 		val now = Instant.now()
-		val currentUser = 0L // TODO: Replace with actual user from context
+		// TODO: Replace with actual user from context.
+		// This is a placeholder that infers the user ID type from the entity's ID type,
+		// which might not be correct in all scenarios.
+		val currentUser: Long = 0L
 
 		if (entity.id == null) {
 			// Insert new entity
@@ -233,7 +236,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 			if (queryInfo.groupByProperty != null) {
 				val groupByColumn = getColumnByName(queryInfo.groupByProperty!!, propertyToColumnMap)
-					?: throw IllegalArgumentException("Column for groupBy property '${queryInfo.groupByProperty!!}' not found.")
+					?: throw IllegalArgumentException("Column for groupBy property '${"$"}{queryInfo.groupByProperty!!}' not found.")
 
 				val countColumn = if (queryInfo.property == "*") idColumn else getColumnByName(
 					queryInfo.property,
@@ -496,8 +499,6 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 					(column as Column<String>) like "%${"$"}{value}%"
 				}
 
-
-
 				QueryOperator.CONTAINING_IGNORE_CASE -> {
 					val value = parameters[parameterIndex++].toString()
 					(column as Column<String>) like "%${"$"}{value}%"
@@ -525,8 +526,6 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 					val values = parameters[parameterIndex++] as List<Any>
 					(column as Column<Any>) inList values
 				}
-
-
 
 				QueryOperator.NOT_IN -> {
 					val values = parameters[parameterIndex++] as List<Any>
