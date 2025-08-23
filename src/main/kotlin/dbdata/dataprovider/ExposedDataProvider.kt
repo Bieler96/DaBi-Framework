@@ -21,7 +21,7 @@ import org.jetbrains.exposed.v1.jdbc.*
 import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.transactions.experimental.newSuspendedTransaction
 import java.math.BigDecimal
-import java.time.LocalDateTime
+import java.time.Instant
 import java.time.ZoneOffset
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
@@ -47,7 +47,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	override fun getEntityClass(): KClass<T> = entityClass
 
 	override suspend fun save(entity: T): T = newSuspendedTransaction(db = database) {
-		val now = LocalDateTime.now()
+		val now = Instant.now()
 		val currentUser = "system" // TODO: Replace with actual user from context
 
 		if (entity.id == null) {
@@ -524,6 +524,8 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 					(column as Column<Any>) inList values
 				}
 
+
+
 				QueryOperator.NOT_IN -> {
 					val values = parameters[parameterIndex++] as List<Any>
 					(column as Column<Any>) notInList values
@@ -584,7 +586,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 			when (paramName) {
 				"id" -> row[idColumn]
 				"createdAt", "updatedAt" -> getColumnByName(paramName, propertyToColumnMap)?.let { row[it] }?.let {
-					if (it is Long) LocalDateTime.ofEpochSecond(it, 0, ZoneOffset.UTC) else it
+					if (it is Long) Instant.ofEpochSecond(it) else it
 				}
 
 				else -> {
@@ -653,7 +655,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	}
 
 	private fun fillStatementFromEntity(statement: UpdateBuilder<*>, entity: T, excludeId: Boolean = false) {
-		val now = LocalDateTime.now()
+		val now = Instant.now()
 		val currentUser = "system" // TODO: Replace with actual user from context
 
 		val isInsert = entity.id == null
@@ -668,9 +670,9 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 
 				when (prop.name) {
 					"createdAt" -> if (isInsert) statement[column as Column<Long>] =
-						now.toEpochSecond(ZoneOffset.UTC) else return@forEach
+						now.epochSecond else return@forEach
 
-					"updatedAt" -> statement[column as Column<Long>] = now.toEpochSecond(ZoneOffset.UTC)
+					"updatedAt" -> statement[column as Column<Long>] = now.epochSecond
 					"createdBy" -> if (isInsert) statement[column as Column<String>] = currentUser else return@forEach
 					"updatedBy" -> statement[column as Column<String>] = currentUser
 					else -> if (value != null) (column as? Column<Any>)?.let { statement[it] = value }

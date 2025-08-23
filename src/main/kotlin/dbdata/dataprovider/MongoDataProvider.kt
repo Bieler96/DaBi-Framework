@@ -14,7 +14,7 @@ import dbdata.query.*
 import dbdata.query.AggregationFunction
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
-import java.time.LocalDateTime
+import java.time.Instant
 import org.bson.Document
 import org.bson.conversions.Bson
 import kotlin.reflect.KClass
@@ -27,7 +27,7 @@ class MongoDataProvider<T : Entity<String>>(
     override fun getEntityClass(): KClass<T> = entityClass
 
     override suspend fun save(entity: T): T {
-        val now = LocalDateTime.now()
+        val now = Instant.now()
         val currentUser = "system" // TODO: Replace with actual user from context
 
         if (entity.id == null) {

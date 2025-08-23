@@ -4,9 +4,9 @@ import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import java.time.LocalDateTime
 import dbdata.query.PageRequest
 import dbdata.query.Sort
+import java.time.Instant
 
 data class UserDto(val name: String, val email: String)
 
@@ -16,8 +16,8 @@ class User(
 	val email: String,
 	val age: Int,
 	val active: Boolean = true,
-	override var createdAt: LocalDateTime? = null,
-	override var updatedAt: LocalDateTime? = null,
+	override var createdAt: Instant? = null,
+	override var updatedAt: Instant? = null,
 	override var createdBy: String? = null,
 	override var updatedBy: String? = null
 ) : Entity<Long> {
@@ -46,8 +46,8 @@ class Post(
 	val title: String,
 	val content: String,
 	val userId: Long,
-	override var createdAt: LocalDateTime? = null,
-	override var updatedAt: LocalDateTime? = null,
+	override var createdAt: Instant? = null,
+	override var updatedAt: Instant? = null,
 	override var createdBy: String? = null,
 	override var updatedBy: String? = null
 ) : Entity<Long> {
@@ -229,14 +229,16 @@ suspend fun main() {
 	println(
 		"""
 ---	Paginated Users (Page 0, Size 2) ---
-""")
+"""
+	)
 	val page0 = userRepository.findAll(PageRequest(pageNumber = 0, pageSize = 2))
 	println("Page 0: $page0")
 
 	println(
 		"""
 ---	Paginated Users (Page 1, Size 2) ---
-""")
+"""
+	)
 	val page1 = userRepository.findAll(PageRequest(pageNumber = 1, pageSize = 2))
 	println("Page 1: $page1")
 
@@ -244,14 +246,16 @@ suspend fun main() {
 	println(
 		"""
 ---	Users sorted by Name ASC ---
-""")
+"""
+	)
 	val sortedByNameAsc = userRepository.findAll(Sort(property = "name", direction = Sort.Direction.ASC))
 	println("Sorted by Name ASC: $sortedByNameAsc")
 
 	println(
 		"""
 ---	Users sorted by Age DESC ---
-""")
+"""
+	)
 	val sortedByAgeDesc = userRepository.findAll(Sort(property = "age", direction = Sort.Direction.DESC))
 	println("Sorted by Age DESC: $sortedByAgeDesc")
 
@@ -268,14 +272,16 @@ suspend fun main() {
 	println(
 		"""
 ---	Custom SQL Query: Users older than 26 ---
-""")
+"""
+	)
 	val customQueryResults = userRepository.findUsersOlderThan(27)
 	println("Custom Query Result: $customQueryResults")
 
 	println(
 		"""
 ---	Extended Query Examples ---
-""")
+"""
+	)
 
 	// OrderBy
 	val usersByAgeSorted = userRepository.findByAgeOrderByNameDesc(30)

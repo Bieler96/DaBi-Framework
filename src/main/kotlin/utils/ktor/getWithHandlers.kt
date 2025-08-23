@@ -6,9 +6,8 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import logging.LogManager
 import utils.exception.UnexpectedStatusException
+import java.time.Instant
 import kotlin.time.measureTimedValue
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 class StatusHandlerScope<T> {
 	val handlers: MutableMap<HttpStatusCode, suspend (HttpResponse) -> T> = mutableMapOf()
@@ -37,7 +36,7 @@ suspend inline fun <reified T> HttpClient.getWithHandlers(
 
 	if (log) {
 		logger.d(tag, "➡️  GET $url")
-		logger.d(tag, "🔍 Request initiiert um ${java.time.LocalDateTime.now()}")
+		logger.d(tag, "🔍 Request initiiert um ${Instant.now()}")
 	}
 
 	val response = get(url)

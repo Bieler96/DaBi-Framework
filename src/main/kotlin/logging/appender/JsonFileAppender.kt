@@ -6,12 +6,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileWriter
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import java.time.Instant
 
 class JsonFileAppender(private val filePath: String) : Appender {
 	private val file = File(filePath)
-	private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
 	init {
 		if (!file.exists()) {
@@ -27,7 +25,7 @@ class JsonFileAppender(private val filePath: String) : Appender {
 		}
 
 		val logEntry = JSONObject()
-		logEntry.put("timestamp", LocalDateTime.now().format(dateFormatter))
+		logEntry.put("timestamp", Instant.now().toString())
 		logEntry.put("level", level.name)
 		logEntry.put("tag", tag)
 		logEntry.put("message", message)
@@ -43,4 +41,3 @@ class JsonFileAppender(private val filePath: String) : Appender {
 		}
 	}
 }
-

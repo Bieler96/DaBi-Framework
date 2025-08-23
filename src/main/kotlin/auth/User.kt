@@ -3,7 +3,7 @@ package auth
 import dbdata.CrudRepository
 import dbdata.Entity
 import dbdata.Repository
-import java.time.LocalDateTime
+import java.time.Instant
 
 data class User(
     override val id: Int? = null,
@@ -13,8 +13,8 @@ data class User(
     val hash: String,
     val salt: String,
     val blocked: Boolean,
-    override var createdAt: LocalDateTime? = null,
-    override var updatedAt: LocalDateTime? = null,
+    override var createdAt: Instant? = null,
+    override var updatedAt: Instant? = null,
     override var createdBy: String? = null,
     override var updatedBy: String? = null
 ) : Entity<Int>

@@ -1,7 +1,6 @@
 package dbdata
 
 import java.time.Instant
-import java.time.LocalDateTime
 
 interface Entity<ID> : Auditable {
 	val id: ID?
