@@ -51,7 +51,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		// TODO: Replace with actual user from context.
 		// This is a placeholder that infers the user ID type from the entity's ID type,
 		// which might not be correct in all scenarios.
-		val currentUser: Long = 0L
+		val currentUser: Long? = null
 
 		if (entity.id == null) {
 			// Insert new entity
