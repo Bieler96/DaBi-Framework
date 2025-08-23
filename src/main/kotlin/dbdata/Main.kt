@@ -6,6 +6,7 @@ import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import dbdata.query.PageRequest
 import dbdata.query.Sort
+import org.jetbrains.exposed.v1.javatime.timestamp
 import java.time.Instant
 
 data class UserDto(val name: String, val email: String)
@@ -132,8 +133,8 @@ object UsersTable : Table("users") {
 	val email = varchar("email", 200)
 	val age = integer("age")
 	val active = bool("active").default(true)
-	val createdAt = long("created_at").nullable()
-	val updatedAt = long("updated_at").nullable()
+	val createdAt = timestamp("created_at").nullable()
+	val updatedAt = timestamp("updated_at").nullable()
 	val createdBy = varchar("created_by", 255).nullable()
 	val updatedBy = varchar("updated_by", 255).nullable()
 
@@ -145,8 +146,8 @@ object PostsTable : Table("posts") {
 	val title = varchar("title", 255)
 	val content = text("content")
 	val userId = long("user_id").references(UsersTable.id)
-	val createdAt = long("created_at").nullable()
-	val updatedAt = long("updated_at").nullable()
+	val createdAt = timestamp("created_at").nullable()
+	val updatedAt = timestamp("updated_at").nullable()
 	val createdBy = varchar("created_by", 255).nullable()
 	val updatedBy = varchar("updated_by", 255).nullable()
 	override val primaryKey = PrimaryKey(id)

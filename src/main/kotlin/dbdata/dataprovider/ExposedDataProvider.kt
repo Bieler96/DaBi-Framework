@@ -655,27 +655,23 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	}
 
 	private fun fillStatementFromEntity(statement: UpdateBuilder<*>, entity: T, excludeId: Boolean = false) {
-		val now = Instant.now()
-		val currentUser = "system" // TODO: Replace with actual user from context
-
 		val isInsert = entity.id == null
 
 		entityClass.memberProperties.forEach { prop ->
 			if (excludeId && prop.name == "id") return@forEach
+
+			// Do not update createdAt/By on update statements
+			if (!isInsert && (prop.name == "createdAt" || prop.name == "createdBy")) {
+				return@forEach
+			}
 
 			val column = propertyToColumnMap[prop.name]
 			if (column != null) {
 				prop.isAccessible = true
 				val value = prop.get(entity)
 
-				when (prop.name) {
-					"createdAt" -> if (isInsert) statement[column as Column<Long>] =
-						now.epochSecond else return@forEach
-
-					"updatedAt" -> statement[column as Column<Long>] = now.epochSecond
-					"createdBy" -> if (isInsert) statement[column as Column<String>] = currentUser else return@forEach
-					"updatedBy" -> statement[column as Column<String>] = currentUser
-					else -> if (value != null) (column as? Column<Any>)?.let { statement[it] = value }
+				if (value != null) {
+					(column as? Column<Any>)?.let { statement[it] = value }
 				}
 			}
 		}
