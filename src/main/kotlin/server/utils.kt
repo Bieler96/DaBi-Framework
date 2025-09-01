@@ -69,10 +69,12 @@ suspend fun ApplicationCall.invokeControllerMethod(function: KFunction<*>, contr
 			param.findAnnotation<RequestBody>() != null -> {
 				try {
 					val typeInfo = TypeInfo(param.type.classifier as KClass<*>, param.type.platformType, param.type)
+					println("Attempting to receive body for type: ${typeInfo.kotlinType}")
 					val body = receive<Any>(typeInfo)
 					args[param] = body
 				} catch (e: Exception) {
-					println("Error receiving request body: ${e.message}")
+					println("Error receiving request body. Type: ${param.type}. Exception: ${e.javaClass.simpleName}, Message: ${e.message}")
+					e.printStackTrace()
 					throw e
 				}
 			}
