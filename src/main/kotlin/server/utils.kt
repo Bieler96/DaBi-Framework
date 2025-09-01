@@ -1,9 +1,15 @@
-package dabiserverextension
+package server
 
+import auth.User
+import auth.auto_config.AuthenticatedUser
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.util.reflect.*
+import server.RequestBody
+import server.RequestParam
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KParameter
@@ -30,6 +36,16 @@ suspend fun ApplicationCall.invokeControllerMethod(function: KFunction<*>, contr
 			// Falls der Parameter vom Typ ApplicationCall ist
 			param.type.classifier == ApplicationCall::class -> args[param] = this
 
+			param.findAnnotation<AuthenticatedUser>() != null -> {
+				if (param.type.classifier == User::class) {
+					val user = principal<User>()
+						?: throw IllegalStateException("No authenticated user found. Is the route protected by authenticate?")
+					args[param] = user
+				} else {
+					throw IllegalStateException("@AuthenticatedUser annotation can only be used on parameters of type User.")
+				}
+			}
+
 			// Parameter mit @RequestParam Annotation
 			param.findAnnotation<RequestParam>() != null -> {
 				val annotation = param.findAnnotation<RequestParam>()!!
@@ -52,7 +68,7 @@ suspend fun ApplicationCall.invokeControllerMethod(function: KFunction<*>, contr
 			// Parameter mit @RequestBody Annotation
 			param.findAnnotation<RequestBody>() != null -> {
 				val typeInfo = TypeInfo(param.type.classifier as KClass<*>, param.type.platformType, param.type)
-                val body = receive<Any>(typeInfo)
+				val body = receive<Any>(typeInfo)
 				args[param] = body
 			}
 
@@ -62,5 +78,5 @@ suspend fun ApplicationCall.invokeControllerMethod(function: KFunction<*>, contr
 
 	// Aufruf der (suspend) Funktion mit den extrahierten Parametern
 	val result = function.callSuspendBy(args)
-    result?.let { respond(it) }
+	result?.let { respond(it) }
 }

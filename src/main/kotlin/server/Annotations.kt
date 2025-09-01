@@ -1,4 +1,4 @@
-package dabiserverextension
+package server
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)

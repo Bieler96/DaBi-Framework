@@ -152,3 +152,59 @@ To use a different token service, you need to provide your own implementation of
 ### Using a Different Hashing Service
 
 To use a different hashing service, you need to provide your own implementation of the `HashingService` interface and bind it in the DI container.
+
+# Authentication Guide
+
+This guide explains how to use the authentication features in your application.
+
+## Protecting Routes
+
+To protect a route and ensure that only authenticated users can access it, you can use the `@Authenticated` annotation on your controller methods.
+
+### Example
+
+```kotlin
+import server.Controller
+import server.GetMapping
+import auth.auto_config.Authenticated
+
+@Controller("/my-protected-resource")
+class MyProtectedController {
+
+    @Authenticated
+    @GetMapping("/secret-data")
+    fun getSecretData(): String {
+        return "This is some secret data."
+    }
+}
+```
+
+In this example, the `/my-protected-resource/secret-data` endpoint is protected. If a user who is not logged in tries to access this endpoint, they will receive a `401 Unauthorized` error.
+
+## Accessing the Authenticated User
+
+In a protected route, you can get access to the currently authenticated user's information.
+To do this, add a parameter of type `User` to your controller method and annotate it with `@AuthenticatedUser`.
+
+### Example
+
+```kotlin
+import auth.User
+import auth.auto_config.Authenticated
+import auth.auto_config.AuthenticatedUser
+import server.Controller
+import server.GetMapping
+
+@Controller("/my-protected-resource")
+class MyProtectedController {
+
+    @Authenticated
+    @GetMapping("/me")
+    fun getMyProfile(@AuthenticatedUser user: User): User {
+        // The 'user' parameter will be automatically injected with the authenticated user object.
+        return user
+    }
+}
+```
+
+In this example, the `/my-protected-resource/me` endpoint will return the `User` object of the currently logged-in user.

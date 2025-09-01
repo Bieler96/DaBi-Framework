@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.github.Bieler96.DaBi-Framework"
-version = "v1.0.5"
+version = "1.0.20"
 
 repositories {
     mavenCentral()
@@ -43,7 +43,8 @@ dependencies {
     implementation("io.ktor:ktor-server-netty:3.2.2")
     implementation("io.ktor:ktor-server-config-yaml:3.2.2")
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.2.2")
-	implementation("io.ktor:ktor-server-auth-jwt-jvm:3.2.2")
+	implementation("io.ktor:ktor-server-auth:3.2.2")
+	implementation("io.ktor:ktor-server-auth-jwt:3.2.2")
 
     // ktor-client
     implementation("io.ktor:ktor-client-core:3.2.2")

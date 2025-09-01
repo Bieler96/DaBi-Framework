@@ -1,8 +1,8 @@
 package auth
 
-import dabiserverextension.Controller
-import dabiserverextension.PostMapping
-import dabiserverextension.RequestBody
+import server.Controller
+import server.PostMapping
+import server.RequestBody
 
 @Controller("/auth")
 class AuthController(private val authService: AuthService) {

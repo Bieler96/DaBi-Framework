@@ -1,4 +1,4 @@
-package dabiserverextension
+package server
 
 enum class HttpMethod {
 	GET,
