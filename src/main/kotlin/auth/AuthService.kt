@@ -1,14 +1,18 @@
 package auth
 
 import di.annotations.Injectable
+import kotlinx.serialization.Serializable
 import security.hashing.HashingService
 import security.token.TokenClaim
 import security.token.TokenConfig
 import security.token.TokenService
 
+@Serializable
 data class RegisterRequest(val email: String, val password: String, val firstName: String, val lastName: String)
+@Serializable
 data class LoginRequest(val email: String, val password: String)
 
+@Serializable
 data class LoginResponse(val token: String)
 
 @Injectable
