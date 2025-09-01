@@ -67,9 +67,14 @@ suspend fun ApplicationCall.invokeControllerMethod(function: KFunction<*>, contr
 
 			// Parameter mit @RequestBody Annotation
 			param.findAnnotation<RequestBody>() != null -> {
-				val typeInfo = TypeInfo(param.type.classifier as KClass<*>, param.type.platformType, param.type)
-				val body = receive<Any>(typeInfo)
-				args[param] = body
+				try {
+					val typeInfo = TypeInfo(param.type.classifier as KClass<*>, param.type.platformType, param.type)
+					val body = receive<Any>(typeInfo)
+					args[param] = body
+				} catch (e: Exception) {
+					println("Error receiving request body: ${e.message}")
+					throw e
+				}
 			}
 
 			// Weitere Fälle können hier ergänzt werden (z. B. Path-Parameter)
