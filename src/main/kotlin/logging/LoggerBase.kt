@@ -10,11 +10,11 @@ enum class LogLevel {
 }
 
 interface LoggerBase {
-	fun log(level: LogLevel, tag: String, message: String, throwable: Throwable? = null)
-	fun v(tag: String, message: String, throwable: Throwable? = null)
-	fun s(tag: String, message: String, throwable: Throwable? = null)
-	fun d(tag: String, message: String, throwable: Throwable? = null)
-	fun i(tag: String, message: String, throwable: Throwable? = null)
-	fun w(tag: String, message: String, throwable: Throwable? = null)
-	fun e(tag: String, message: String, throwable: Throwable? = null)
+	fun log(level: LogLevel, message: String, throwable: Throwable? = null)
+	fun v(message: String, throwable: Throwable? = null)
+	fun s(message: String, throwable: Throwable? = null)
+	fun d(message: String, throwable: Throwable? = null)
+	fun i(message: String, throwable: Throwable? = null)
+	fun w(message: String, throwable: Throwable? = null)
+	fun e(message: String, throwable: Throwable? = null)
 }

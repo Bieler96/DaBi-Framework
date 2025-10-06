@@ -1,7 +1,6 @@
-package core.appender
+package logging.appender
 
 import logging.LogLevel
-import logging.appender.Appender
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -17,7 +16,7 @@ class JsonFileAppender(private val filePath: String) : Appender {
 		}
 	}
 
-	override fun append(level: LogLevel, tag: String, message: String, throwable: Throwable?) {
+	override fun append(level: LogLevel, message: String, throwable: Throwable?) {
 		val jsonArray = if (file.length() > 0) {
 			JSONArray(file.readText())
 		} else {
@@ -27,7 +26,6 @@ class JsonFileAppender(private val filePath: String) : Appender {
 		val logEntry = JSONObject()
 		logEntry.put("timestamp", Instant.now().toString())
 		logEntry.put("level", level.name)
-		logEntry.put("tag", tag)
 		logEntry.put("message", message)
 
 		if (throwable != null) {

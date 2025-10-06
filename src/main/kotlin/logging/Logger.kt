@@ -18,12 +18,11 @@ class Logger(
 	}
 
 	companion object {
-		private val POISON_PILL = LogEvent(LogLevel.INFO, "", "", null)
+		private val POISON_PILL = LogEvent(LogLevel.INFO, "", null)
 	}
 
 	data class LogEvent(
 		val level: LogLevel,
-		val tag: String,
 		val message: String,
 		val throwable: Throwable?
 	)
@@ -34,7 +33,7 @@ class Logger(
 				var logEvent = logQueue.take()
 				while (logEvent !== POISON_PILL) {
 					for (appender in appenders) {
-						appender.append(logEvent.level, logEvent.tag, logEvent.message, logEvent.throwable)
+						appender.append(logEvent.level, logEvent.message, logEvent.throwable)
 					}
 					logEvent = logQueue.take()
 				}
@@ -44,26 +43,26 @@ class Logger(
 		}
 	}
 
-	override fun log(level: LogLevel, tag: String, message: String, throwable: Throwable?) {
+	override fun log(level: LogLevel, message: String, throwable: Throwable?) {
 		if (level.ordinal >= minLogLevel.ordinal) {
 			if (!logExecutor.isShutdown) {
-				val event = LogEvent(level, tag, message, throwable)
+				val event = LogEvent(level, message, throwable)
 				logQueue.offer(event)
 			}
 		}
 	}
 
-	override fun v(tag: String, message: String, throwable: Throwable?) = log(LogLevel.VERBOSE, tag, message, throwable)
+	override fun v(message: String, throwable: Throwable?) = log(LogLevel.VERBOSE, message, throwable)
 
-	override fun s(tag: String, message: String, throwable: Throwable?) = log(LogLevel.SUCCESS, tag, message, throwable)
+	override fun s(message: String, throwable: Throwable?) = log(LogLevel.SUCCESS, message, throwable)
 
-	override fun d(tag: String, message: String, throwable: Throwable?) = log(LogLevel.DEBUG, tag, message, throwable)
+	override fun d(message: String, throwable: Throwable?) = log(LogLevel.DEBUG, message, throwable)
 
-	override fun i(tag: String, message: String, throwable: Throwable?) = log(LogLevel.INFO, tag, message, throwable)
+	override fun i(message: String, throwable: Throwable?) = log(LogLevel.INFO, message, throwable)
 
-	override fun w(tag: String, message: String, throwable: Throwable?) = log(LogLevel.WARNING, tag, message, throwable)
+	override fun w(message: String, throwable: Throwable?) = log(LogLevel.WARNING, message, throwable)
 
-	override fun e(tag: String, message: String, throwable: Throwable?) = log(LogLevel.ERROR, tag, message, throwable)
+	override fun e(message: String, throwable: Throwable?) = log(LogLevel.ERROR, message, throwable)
 
 	fun setMinLogLevel(level: LogLevel) {
 		minLogLevel = level

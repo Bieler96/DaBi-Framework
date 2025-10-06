@@ -16,9 +16,13 @@ class HttpAppender(private val url: String) : Appender {
 		.connectTimeout(Duration.ofSeconds(5))
 		.build()
 
-	override fun append(level: LogLevel, tag: String, message: String, throwable: Throwable?) {
+	override fun append(
+		level: LogLevel,
+		message: String,
+		throwable: Throwable?
+	) {
 		try {
-			val logData = buildJsonPayload(level, tag, message, throwable)
+			val logData = buildJsonPayload(level, message, throwable)
 			val request = HttpRequest.newBuilder()
 				.uri(URI.create(url))
 				.header("Content-Type", "application/json")
@@ -36,14 +40,13 @@ class HttpAppender(private val url: String) : Appender {
 		}
 	}
 
-	private fun buildJsonPayload(level: LogLevel, tag: String, message: String, throwable: Throwable?): String {
+	private fun buildJsonPayload(level: LogLevel, message: String, throwable: Throwable?): String {
 		val timestamp = System.currentTimeMillis()
 		val stackTrace = throwable?.stackTraceToString() ?: ""
 
 		return """{
 		            "timestamp": $timestamp,
 		            "level": "${level.name}",
-		            "tag": "$tag",
 		            "message": "${message.replace("\"", "\\\"")}",
 		            ${if (throwable != null) "\"stackTrace\": \"${stackTrace.replace("\"", "\\\"")}\"" else ""}
 		        }""".trimIndent()

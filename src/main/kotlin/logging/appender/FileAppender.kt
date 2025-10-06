@@ -17,12 +17,11 @@ class FileAppender(private val logFile: File) : Appender {
 
 	override fun append(
 		level: LogLevel,
-		tag: String,
 		message: String,
 		throwable: Throwable?
 	) {
 		val timestamp = dateFormatter.format(Date())
-		val logLine = "$timestamp [${level.name}] $tag: $message\n" +
+		val logLine = "$timestamp [${level.name}] $message\n" +
 				(throwable?.let { "${it.stackTraceToString()}\n" } ?: "")
 
 		FileWriter(logFile, true).use { writer ->

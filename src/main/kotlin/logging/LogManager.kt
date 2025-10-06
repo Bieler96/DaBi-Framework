@@ -1,6 +1,6 @@
 package logging
 
-import core.appender.JsonFileAppender
+import logging.appender.JsonFileAppender
 import logging.appender.Appender
 import logging.appender.ConsoleAppender
 import logging.appender.FileAppender

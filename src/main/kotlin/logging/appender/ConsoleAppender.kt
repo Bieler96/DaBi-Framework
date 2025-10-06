@@ -27,7 +27,6 @@ class ConsoleAppender : Appender {
 
 	override fun append(
 		level: LogLevel,
-		tag: String,
 		message: String,
 		throwable: Throwable?
 	) {
@@ -41,7 +40,7 @@ class ConsoleAppender : Appender {
 		}
 		val timestamp = dateFormatter.format(Date())
 
-		val logMessage = "[$coloredLevel]\t$timestamp\t$tag: $message"
+		val logMessage = "[$coloredLevel]\t$timestamp\t$message"
 
 		when (level) {
 //			LogLevel.ERROR -> System.err.println(logMessage)
