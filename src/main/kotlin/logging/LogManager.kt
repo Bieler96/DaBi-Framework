@@ -30,12 +30,12 @@ object LogManager {
 				LoggerConfig.AppenderType.CONSOLE -> appenders.add(ConsoleAppender())
 
 				LoggerConfig.AppenderType.FILE -> {
-					val logFile = File("application.log")
+					val logFile = File(config.logFile)
 					appenders.add(FileAppender(logFile))
 				}
 
 				LoggerConfig.AppenderType.JSON_FILE -> {
-					val logFile = File("application.json")
+					val logFile = File(config.jsonLogFile)
 					appenders.add(JsonFileAppender(logFile.absolutePath))
 				}
 
