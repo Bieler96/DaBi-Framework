@@ -44,7 +44,7 @@ class Logger(
 	}
 
 	override fun log(level: LogLevel, message: String, throwable: Throwable?) {
-		if (level.ordinal >= minLogLevel.ordinal) {
+		if (level >= minLogLevel) {
 			if (!logExecutor.isShutdown) {
 				val event = LogEvent(level, message, throwable)
 				logQueue.offer(event)

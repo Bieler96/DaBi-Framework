@@ -1,14 +1,5 @@
 package logging
 
-enum class LogLevel {
-	VERBOSE,
-	DEBUG,
-	INFO,
-	WARNING,
-	ERROR,
-	SUCCESS
-}
-
 interface LoggerBase {
 	fun log(level: LogLevel, message: String, throwable: Throwable? = null)
 	fun v(message: String, throwable: Throwable? = null)

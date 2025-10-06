@@ -37,6 +37,7 @@ class ConsoleAppender : Appender {
 			LogLevel.DEBUG -> "$PURPLE${level.name}$RESET"
 			LogLevel.SUCCESS -> "$GREEN${level.name}$RESET"
 			LogLevel.VERBOSE -> "$CYAN${level.name}$RESET"
+			else -> level.name
 		}
 		val timestamp = dateFormatter.format(Date())
 
