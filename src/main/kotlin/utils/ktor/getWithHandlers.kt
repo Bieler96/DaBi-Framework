@@ -35,8 +35,8 @@ suspend inline fun <reified T> HttpClient.getWithHandlers(
 	val startTime = System.currentTimeMillis()
 
 	if (log) {
-		logger.d(tag, "➡️  GET $url")
-		logger.d(tag, "🔍 Request initiiert um ${Instant.now()}")
+		logger.d("➡️  GET $url")
+		logger.d("🔍 Request initiiert um ${Instant.now()}")
 	}
 
 	val response = get(url)
@@ -46,29 +46,29 @@ suspend inline fun <reified T> HttpClient.getWithHandlers(
 	val duration = endTime - startTime
 
 	if (log) {
-		logger.d(tag, "⬅️  ${status.value} ${status.description} (${duration}ms)")
-		logger.d(tag, "📋 Response Headers: ${response.headers.entries().joinToString(", ") { "${it.key}: ${it.value}" }}")
+		logger.d("⬅️  ${status.value} ${status.description} (${duration}ms)")
+		logger.d("📋 Response Headers: ${response.headers.entries().joinToString(", ") { "${it.key}: ${it.value}" }}")
 	}
 
 	return when {
 		handler != null -> {
 			if (log) {
-				logger.d(tag, "✅ Verarbeitung mit registriertem Handler für Status ${status.value}")
-				logger.d(tag, "⏱️ Antwort erhalten nach ${duration}ms")
-				logger.d(tag, "🧩 Content-Type: ${response.headers["Content-Type"]}")
-				logger.d(tag, "📦 Content-Length: ${response.headers["Content-Length"]} bytes")
+				logger.d("✅ Verarbeitung mit registriertem Handler für Status ${status.value}")
+				logger.d("⏱️ Antwort erhalten nach ${duration}ms")
+				logger.d("🧩 Content-Type: ${response.headers["Content-Type"]}")
+				logger.d("📦 Content-Length: ${response.headers["Content-Length"]} bytes")
 
 				// Logge den Response-Body
 				try {
 					val responseBody = response.bodyAsText()
 					if (responseBody.length > 1000) {
-						logger.d(tag, "📝 Response-Body (gekürzt): ${responseBody.take(1000)}...")
-						logger.d(tag, "📊 Vollständige Body-Länge: ${responseBody.length} Zeichen")
+						logger.d("📝 Response-Body (gekürzt): ${responseBody.take(1000)}...")
+						logger.d("📊 Vollständige Body-Länge: ${responseBody.length} Zeichen")
 					} else {
-						logger.d(tag, "📝 Response-Body: $responseBody")
+						logger.d("📝 Response-Body: $responseBody")
 					}
 				} catch (e: Exception) {
-					logger.w(tag, "⚠️ Konnte Response-Body nicht lesen: ${e.message}")
+					logger.w("⚠️ Konnte Response-Body nicht lesen: ${e.message}")
 				}
 			}
 			try {
@@ -76,14 +76,14 @@ suspend inline fun <reified T> HttpClient.getWithHandlers(
 				val result = handler(response)
 				if (log) {
 					val handlerDuration = System.currentTimeMillis() - handlerStartTime
-					logger.d(tag, "🏁 Handler abgeschlossen in ${handlerDuration}ms")
+					logger.d("🏁 Handler abgeschlossen in ${handlerDuration}ms")
 				}
 				result
 			} catch (e: Exception) {
 				if (log) {
-					logger.e(tag, "💥 Fehler im Handler: ${e.message}")
+					logger.e("💥 Fehler im Handler: ${e.message}")
 					e.stackTrace?.firstOrNull()?.let { frame ->
-						logger.e(tag, "   bei ${frame.className}.${frame.methodName}(${frame.fileName}:${frame.lineNumber})")
+						logger.e("   bei ${frame.className}.${frame.methodName}(${frame.fileName}:${frame.lineNumber})")
 					}
 				}
 				throw e
@@ -92,24 +92,24 @@ suspend inline fun <reified T> HttpClient.getWithHandlers(
 		scope.getFallback() != null -> {
 			val body = response.bodyAsText()
 			if (log) {
-				logger.d(tag, "🔄 Verwende Fallback-Handler für Status ${status.value}")
-				logger.d(tag, "📄 Body (fallback): $body")
-				if (body.length > 500) logger.d(tag, "⚠️ Body gekürzt (${body.length} Zeichen)")
-				logger.d(tag, "⏱️ Zeit bis Fallback: ${duration}ms")
+				logger.d("🔄 Verwende Fallback-Handler für Status ${status.value}")
+				logger.d("📄 Body (fallback): $body")
+				if (body.length > 500) logger.d("⚠️ Body gekürzt (${body.length} Zeichen)")
+				logger.d("⏱️ Zeit bis Fallback: ${duration}ms")
 			}
 			try {
 				val fallbackStartTime = System.currentTimeMillis()
 				val result = scope.getFallback()!!.invoke(status, body)
 				if (log) {
 					val fallbackDuration = System.currentTimeMillis() - fallbackStartTime
-					logger.d(tag, "🏁 Fallback-Handler abgeschlossen in ${fallbackDuration}ms")
+					logger.d("🏁 Fallback-Handler abgeschlossen in ${fallbackDuration}ms")
 				}
 				result
 			} catch (e: Exception) {
 				if (log) {
-					logger.e(tag, "💥 Fehler im Fallback-Handler: ${e.message}")
+					logger.e("💥 Fehler im Fallback-Handler: ${e.message}")
 					e.stackTrace?.firstOrNull()?.let { frame ->
-						logger.e(tag, "   bei ${frame.className}.${frame.methodName}(${frame.fileName}:${frame.lineNumber})")
+						logger.e("   bei ${frame.className}.${frame.methodName}(${frame.fileName}:${frame.lineNumber})")
 					}
 				}
 				throw e
@@ -119,9 +119,9 @@ suspend inline fun <reified T> HttpClient.getWithHandlers(
 		else -> {
 			val body = response.bodyAsText()
 			if (log) {
-				logger.w(tag, "❗ Unerwarteter Status ${status.value} nach ${duration}ms")
-				logger.w(tag, "📋 Response Headers: ${response.headers.entries().joinToString(", ") { "${it.key}: ${it.value}" }}")
-				logger.w(tag, "📄 Body: $body")
+				logger.w("❗ Unerwarteter Status ${status.value} nach ${duration}ms")
+				logger.w("📋 Response Headers: ${response.headers.entries().joinToString(", ") { "${it.key}: ${it.value}" }}")
+				logger.w("📄 Body: $body")
 			}
 			throw UnexpectedStatusException(status, body)
 		}

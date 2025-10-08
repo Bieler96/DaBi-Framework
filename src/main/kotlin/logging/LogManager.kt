@@ -23,27 +23,27 @@ object LogManager {
 	fun initialize(config: LoggerConfig) {
 		if (isInitialized) return
 
-		val appenders = mutableListOf<Appender>()
+		val appenders = mutableListOf<AppenderWithLevel>()
 
-		config.appenders.forEach { appenderType ->
-			when (appenderType) {
-				LoggerConfig.AppenderType.CONSOLE -> appenders.add(ConsoleAppender())
-
+		config.appenders.forEach { appenderConfig ->
+			val appender = when (appenderConfig.type) {
+				LoggerConfig.AppenderType.CONSOLE -> ConsoleAppender()
 				LoggerConfig.AppenderType.FILE -> {
 					val logFile = File(config.logFile)
-					appenders.add(FileAppender(logFile))
+					FileAppender(logFile)
 				}
 
 				LoggerConfig.AppenderType.JSON_FILE -> {
 					val logFile = File(config.jsonLogFile)
-					appenders.add(JsonFileAppender(logFile.absolutePath))
+					JsonFileAppender(logFile.absolutePath)
 				}
 
 				LoggerConfig.AppenderType.HTTP -> {
 					if (config.httpEndpoint == null) throw IllegalArgumentException("HTTP Appender requires an endpoint URL.")
-					appenders.add(HttpAppender(config.httpEndpoint))
+					HttpAppender(config.httpEndpoint)
 				}
 			}
+			appenders.add(AppenderWithLevel(appender, appenderConfig.minLogLevel))
 		}
 
 		logger = Logger(appenders, config.minLogLevel)
@@ -60,7 +60,7 @@ object LogManager {
 			initialize(
 				LoggerConfig(
 					minLogLevel = LogLevel.DEBUG,
-					appenders = listOf(LoggerConfig.AppenderType.CONSOLE)
+					appenders = listOf(AppenderConfigEntry(LoggerConfig.AppenderType.CONSOLE))
 				)
 			)
 		}

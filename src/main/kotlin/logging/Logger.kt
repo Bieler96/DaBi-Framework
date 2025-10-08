@@ -6,8 +6,10 @@ import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
+data class AppenderWithLevel(val appender: Appender, val minLogLevel: LogLevel?)
+
 class Logger(
-	private val appenders: List<Appender>,
+	private val appenders: List<AppenderWithLevel>,
 	@Volatile private var minLogLevel: LogLevel = LogLevel.INFO
 ) : LoggerBase {
 	private val logQueue = LinkedBlockingQueue<LogEvent>()
@@ -18,7 +20,7 @@ class Logger(
 	}
 
 	companion object {
-		private val POISON_PILL = LogEvent(LogLevel.INFO, "", null)
+		private val POISON_PILL = LogEvent(LogLevel("POISON", -1), "", null)
 	}
 
 	data class LogEvent(
@@ -32,8 +34,11 @@ class Logger(
 			try {
 				var logEvent = logQueue.take()
 				while (logEvent !== POISON_PILL) {
-					for (appender in appenders) {
-						appender.append(logEvent.level, logEvent.message, logEvent.throwable)
+					for (appenderWithLevel in appenders) {
+						val effectiveMinLevel = appenderWithLevel.minLogLevel ?: this.minLogLevel
+						if (logEvent.level >= effectiveMinLevel) {
+							appenderWithLevel.appender.append(logEvent.level, logEvent.message, logEvent.throwable)
+						}
 					}
 					logEvent = logQueue.take()
 				}
@@ -44,11 +49,9 @@ class Logger(
 	}
 
 	override fun log(level: LogLevel, message: String, throwable: Throwable?) {
-		if (level >= minLogLevel) {
-			if (!logExecutor.isShutdown) {
-				val event = LogEvent(level, message, throwable)
-				logQueue.offer(event)
-			}
+		if (!logExecutor.isShutdown) {
+			val event = LogEvent(level, message, throwable)
+			logQueue.offer(event)
 		}
 	}
 
@@ -69,9 +72,8 @@ class Logger(
 	}
 
 	fun shutdown() {
-		logExecutor.shutdown()
 		logQueue.offer(POISON_PILL)
-
+		logExecutor.shutdown()
 		try {
 			if (!logExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
 				System.err.println("Logger shutdown timed out. Forcing shutdown...")

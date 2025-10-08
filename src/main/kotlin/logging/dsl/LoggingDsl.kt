@@ -1,8 +1,9 @@
 package logging.dsl
 
+import logging.AppenderConfigEntry
 import logging.LogLevel
-import logging.LogManager
 import logging.LoggerConfig
+import logging.LogManager
 
 @DslMarker
 annotation class LoggingDslMarker
@@ -10,7 +11,7 @@ annotation class LoggingDslMarker
 @LoggingDslMarker
 class LoggingDsl {
     var minLogLevel: LogLevel = LogLevel.INFO
-    private val appenders = mutableListOf<LoggerConfig.AppenderType>()
+    private var appenderConfigs = listOf<AppenderConfigEntry>()
     private var httpEndpoint: String? = null
     private var logFile: String = "application.log"
     private var jsonLogFile: String = "application.json"
@@ -21,7 +22,7 @@ class LoggingDsl {
 
     fun appenders(block: AppendersDsl.() -> Unit) {
         val appendersDsl = AppendersDsl().apply(block)
-        appenders.addAll(appendersDsl.appenders)
+        appenderConfigs = appendersDsl.appenderConfigs
         httpEndpoint = appendersDsl.httpEndpoint
         logFile = appendersDsl.logFile
         jsonLogFile = appendersDsl.jsonLogFile
@@ -30,38 +31,39 @@ class LoggingDsl {
     internal fun build(): LoggerConfig {
         return LoggerConfig(
             minLogLevel = minLogLevel,
-            appenders = appenders,
+            appenders = appenderConfigs,
             httpEndpoint = httpEndpoint,
             logFile = logFile,
             jsonLogFile = jsonLogFile
         )
     }
 }
+
 @LoggingDslMarker
 class AppendersDsl {
-	internal val appenders = mutableListOf<LoggerConfig.AppenderType>()
-	internal var httpEndpoint: String? = null
-	internal var logFile: String = "application.log"
-	internal var jsonLogFile: String = "application.json"
+    internal val appenderConfigs = mutableListOf<AppenderConfigEntry>()
+    internal var httpEndpoint: String? = null
+    internal var logFile: String = "application.log"
+    internal var jsonLogFile: String = "application.json"
 
-	fun console() {
-		appenders.add(LoggerConfig.AppenderType.CONSOLE)
-	}
+    fun console(minLogLevel: LogLevel? = null) {
+        appenderConfigs.add(AppenderConfigEntry(LoggerConfig.AppenderType.CONSOLE, minLogLevel))
+    }
 
-	fun file(fileName: String = "application.log") {
-		appenders.add(LoggerConfig.AppenderType.FILE)
-		logFile = fileName
-	}
+    fun file(fileName: String = "application.log", minLogLevel: LogLevel? = null) {
+        appenderConfigs.add(AppenderConfigEntry(LoggerConfig.AppenderType.FILE, minLogLevel))
+        logFile = fileName
+    }
 
-	fun json(fileName: String = "application.json") {
-		appenders.add(LoggerConfig.AppenderType.JSON_FILE)
-		jsonLogFile = fileName
-	}
+    fun json(fileName: String = "application.json", minLogLevel: LogLevel? = null) {
+        appenderConfigs.add(AppenderConfigEntry(LoggerConfig.AppenderType.JSON_FILE, minLogLevel))
+        jsonLogFile = fileName
+    }
 
-	fun http(endpoint: String) {
-		appenders.add(LoggerConfig.AppenderType.HTTP)
-		httpEndpoint = endpoint
-	}
+    fun http(endpoint: String, minLogLevel: LogLevel? = null) {
+        appenderConfigs.add(AppenderConfigEntry(LoggerConfig.AppenderType.HTTP, minLogLevel))
+        httpEndpoint = endpoint
+    }
 }
 
 /**
@@ -81,6 +83,6 @@ class AppendersDsl {
  * ```
  */
 fun logging(block: LoggingDsl.() -> Unit) {
-	val config = LoggingDsl().apply(block).build()
-	LogManager.initialize(config)
+    val config = LoggingDsl().apply(block).build()
+    LogManager.initialize(config)
 }
