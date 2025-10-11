@@ -5,6 +5,7 @@ import logging.appender.Appender
 import logging.appender.ConsoleAppender
 import logging.appender.FileAppender
 import logging.appender.HttpAppender
+import logging.appender.XmlAppender
 import java.io.File
 
 object LogManager {
@@ -36,6 +37,11 @@ object LogManager {
 				LoggerConfig.AppenderType.JSON_FILE -> {
 					val logFile = File(config.jsonLogFile)
 					JsonFileAppender(logFile.absolutePath)
+				}
+
+				LoggerConfig.AppenderType.XML_FILE -> {
+					val logFile = File(config.xmlLogFile)
+					XmlAppender(logFile.absolutePath)
 				}
 
 				LoggerConfig.AppenderType.HTTP -> {
