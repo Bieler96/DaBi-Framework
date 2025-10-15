@@ -1,12 +1,11 @@
 package dbdata
 
-import org.jetbrains.exposed.v1.core.Table
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.SchemaUtils
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import dbdata.migration.DatabaseMigrator
 import dbdata.query.PageRequest
 import dbdata.query.Sort
+import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.javatime.timestamp
+import org.jetbrains.exposed.v1.jdbc.Database
 import java.time.Instant
 
 data class UserDto(val name: String, val email: String)
@@ -20,7 +19,8 @@ class User(
 	override var createdAt: Instant? = null,
 	override var updatedAt: Instant? = null,
 	override var createdBy: Long? = null,
-	override var updatedBy: Long? = null
+	override var updatedBy: Long? = null,
+	val phoneNumber: String? = null
 ) : Entity<Long> {
 	@OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
 	var posts: List<Post> = emptyList()
@@ -137,6 +137,7 @@ object UsersTable : Table("users") {
 	val updatedAt = timestamp("updated_at").nullable()
 	val createdBy = long("created_by").nullable()
 	val updatedBy = long("updated_by").nullable()
+	val phoneNumber = varchar("phone_number", 255).nullable()
 
 	override val primaryKey = PrimaryKey(id)
 }
@@ -158,10 +159,11 @@ fun setupRepositories(): DataRepositoryConfiguration {
 
 	// Exposed Setup
 	val database = Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "org.h2.Driver")
-	transaction(database) {
-		SchemaUtils.drop(UsersTable, PostsTable)
-		SchemaUtils.create(UsersTable, PostsTable) // Create both tables
-	}
+
+	// Run database migrations
+	val migrator = DatabaseMigrator(database)
+	migrator.migrate()
+
 	config.registerExposedRepository(
 		UserRepository::class,
 		UsersTable,
@@ -188,7 +190,6 @@ suspend fun main() {
 	val user1 = userRepository.save(User(name = "John Doe", email = "john@example.com", age = 30, active = true))
 	val user2 = userRepository.save(User(name = "Jane Smith", email = "jane@example.com", age = 25, active = false))
 	val user3 = userRepository.save(User(name = "John Smith", email = "john.smith@example.com", age = 30, active = true))
-
 
 	println("Saved User1: $user1")
 	println("Saved User2: $user2")
