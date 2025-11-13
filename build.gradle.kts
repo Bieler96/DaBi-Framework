@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.github.Bieler96.DaBi-Framework"
-version = "1.0.25"
+version = "1.0.26"
 
 repositories {
     mavenCentral()
@@ -22,6 +22,7 @@ dependencies {
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.3.1")
     implementation("org.json:json:20231013")
 	implementation("commons-codec:commons-codec:1.15")
+    implementation("org.jetbrains.kotlinx:kotlin-jupyter-api:0.11.0-183-1")
 
     // exposed
     implementation("org.jetbrains.exposed:exposed-core:1.0.0-beta-5")
