@@ -27,7 +27,7 @@ object OpenApiGenerator {
         packages: Array<String>,
         info: Info
     ): OpenAPI {
-        val openApi = OpenAPI(info = info)
+        val openApi = OpenAPI(openapi = "3.0.0", info = info)
         val classGraph = ClassGraph()
             .enableAllInfo()
             .acceptPackages(*packages)

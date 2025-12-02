@@ -5,7 +5,7 @@ import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class OpenAPI(
-    val openapi: String = "3.0.0",
+    var openapi: String,
     var info: Info,
     var paths: MutableMap<String, PathItem> = mutableMapOf()
 )
