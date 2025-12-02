@@ -12,13 +12,6 @@ data class OpenAPI(
 )
 
 @Serializable
-data class Info(
-    val title: String,
-    val version: String,
-    val description: String? = null
-)
-
-@Serializable
 data class PathItem(
     var get: Operation? = null,
     var post: Operation? = null,
