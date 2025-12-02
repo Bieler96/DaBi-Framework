@@ -28,6 +28,7 @@ object OpenApiGenerator {
         info: Info
     ): OpenAPI {
         val openApi = OpenAPI(openapi = "3.0.0", info = info)
+        val tagSet = mutableSetOf<String>()
         val classGraph = ClassGraph()
             .enableAllInfo()
             .acceptPackages(*packages)
@@ -38,6 +39,11 @@ object OpenApiGenerator {
                 val kClass = Class.forName(classInfo.name).kotlin
                 val controller = kClass.findAnnotation<Controller>() ?: continue
                 val controllerPath = controller.path
+                val apiTag = controller.apiTag.ifBlank { kClass.simpleName ?: "" }
+
+                if (apiTag.isNotBlank()) {
+                    tagSet.add(apiTag)
+                }
 
                 for (function in kClass.declaredFunctions) {
                     function.annotations.forEach { annotation ->
@@ -53,7 +59,7 @@ object OpenApiGenerator {
                         val (httpMethod, path, summary, description) = routeInfo
 
                         val fullPath = (controllerPath + path).replace(Regex("//+"), "/")
-                        val operation = createOperation(function, summary, description)
+                        val operation = createOperation(function, summary, description, apiTag)
 
                         val pathItem = openApi.paths.getOrPut(fullPath) { PathItem() }
                         when (httpMethod) {
@@ -67,11 +73,15 @@ object OpenApiGenerator {
                 }
             }
         }
+        openApi.tags.addAll(tagSet.map { Tag(it) })
         return openApi
     }
 
-    private fun createOperation(function: KFunction<*>, summary: String, description: String): Operation {
+    private fun createOperation(function: KFunction<*>, summary: String, description: String, apiTag: String): Operation {
         val operation = Operation(summary = summary, description = if (description.isNotBlank()) description else null)
+        if (apiTag.isNotBlank()) {
+            operation.tags.add(apiTag)
+        }
 
         // Parameters
         operation.parameters.addAll(function.findAnnotations<PathParameter>().map {

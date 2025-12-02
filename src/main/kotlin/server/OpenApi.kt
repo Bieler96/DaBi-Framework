@@ -7,7 +7,8 @@ import kotlinx.serialization.json.JsonElement
 data class OpenAPI(
     var openapi: String,
     var info: Info,
-    var paths: MutableMap<String, PathItem> = mutableMapOf()
+    var paths: MutableMap<String, PathItem> = mutableMapOf(),
+    var tags: MutableList<Tag> = mutableListOf()
 )
 
 @Serializable
@@ -32,7 +33,8 @@ data class Operation(
     var description: String? = null,
     var parameters: MutableList<Parameter> = mutableListOf(),
     var requestBody: RequestBodyObject? = null,
-    var responses: MutableMap<String, ResponseObject> = mutableMapOf()
+    var responses: MutableMap<String, ResponseObject> = mutableMapOf(),
+    var tags: MutableList<String> = mutableListOf()
 )
 
 @Serializable
@@ -72,4 +74,10 @@ data class Schema(
     val example: JsonElement? = null,
     val description: String? = null,
     val required: List<String>? = null,
+)
+
+@Serializable
+data class Tag(
+    val name: String,
+    val description: String? = null
 )
