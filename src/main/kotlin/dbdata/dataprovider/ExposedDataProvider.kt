@@ -4,25 +4,12 @@ import dbdata.*
 import dbdata.exception.EntityNotFoundException
 import dbdata.query.*
 import org.jetbrains.exposed.v1.core.*
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.between
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.greater
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.greaterEq
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.inList
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.isNotNull
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.isNull
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.less
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.lessEq
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.like
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.neq
-import org.jetbrains.exposed.v1.core.SqlExpressionBuilder.notInList
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.*
 import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.math.BigDecimal
 import java.time.Instant
-import java.time.ZoneOffset
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KParameter
@@ -88,7 +75,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	}
 
 	override suspend fun findById(id: ID): T? = transaction(db = database) {
-		findWithRelations(Op.build { idColumn eq id }).firstOrNull()
+		findWithRelations(idColumn eq id).firstOrNull()
 	}
 
 	override suspend fun findAll(): List<T> = transaction(db = database) {
@@ -573,7 +560,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		val constructor = entityClass.primaryConstructor
 			?: throw IllegalArgumentException("Entity ${"$"}{entityClass.simpleName} must have a primary constructor")
 
-		val idColumn = table.columns.firstOrNull { it.name == "id" } ?: return null
+		val idColumn = table.primaryKey?.columns?.firstOrNull() ?: table.columns.firstOrNull { it.name.equals("id", ignoreCase = true) } ?: return null
 
 		if (!row.fieldIndex.containsKey(idColumn) || row[idColumn] == null) {
 			return null
@@ -639,20 +626,14 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 	}
 
 	private fun buildPropertyToColumnMapping(table: Table): Map<String, Column<*>> {
-		val mapping = mutableMapOf<String, Column<*>>()
+		// This new implementation assumes entity property names are camelCase versions of snake_case or uppercase column names.
+		fun toCamelCase(snake: String): String {
+			return snake.split('_').mapIndexed { index, s ->
+				if (index == 0) s.lowercase() else s.lowercase().replaceFirstChar { it.uppercase() }
+			}.joinToString("")
+		}
 
-		val tableClass = table.javaClass.kotlin
-		val columns = tableClass.memberProperties
-			.filter { it.returnType.classifier == Column::class }
-			.mapNotNull { prop ->
-				prop.isAccessible = true
-				val column = prop.get(table) as? Column<*>
-				val propertyName = prop.name
-				column?.let { propertyName to it }
-			}
-
-		mapping.putAll(columns)
-		return mapping
+		return table.columns.associateBy { toCamelCase(it.name) }
 	}
 
 	private fun fillStatementFromEntity(statement: UpdateBuilder<*>, entity: T, excludeId: Boolean = false) {

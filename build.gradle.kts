@@ -25,9 +25,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlin-jupyter-api:0.11.0-183-1")
 
     // exposed
-    implementation("org.jetbrains.exposed:exposed-core:1.0.0-beta-5")
-    implementation("org.jetbrains.exposed:exposed-jdbc:1.0.0-beta-5")
-    implementation("org.jetbrains.exposed:exposed-java-time:1.0.0-beta-5")
+    implementation("org.jetbrains.exposed:exposed-core:1.0.0")
+    implementation("org.jetbrains.exposed:exposed-jdbc:1.0.0")
+    implementation("org.jetbrains.exposed:exposed-java-time:1.0.0")
     implementation("com.h2database:h2:2.2.224")
 
     // mongodb

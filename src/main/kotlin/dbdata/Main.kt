@@ -6,6 +6,8 @@ import dbdata.query.Sort
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.javatime.timestamp
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.SchemaUtils
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.time.Instant
 
 data class UserDto(val name: String, val email: String)
@@ -53,7 +55,7 @@ class Post(
 	override var updatedBy: Long? = null
 ) : Entity<Long> {
 	@ManyToOne(fetch = FetchType.EAGER)
-	@JoinColumn(name = "user_id", referencedColumnName = "id")
+	@JoinColumn(name = "USER_ID", referencedColumnName = "ID")
 	var user: User? = null
 
 	override fun toString(): String {
@@ -128,29 +130,29 @@ interface PostRepository : CrudRepository<Post, Long> {
 }
 
 object UsersTable : Table("users") {
-	val id = long("id").autoIncrement()
-	val name = varchar("name", 100)
-	val email = varchar("email", 200)
-	val age = integer("age")
-	val active = bool("active").default(true)
-	val createdAt = timestamp("created_at").nullable()
-	val updatedAt = timestamp("updated_at").nullable()
-	val createdBy = long("created_by").nullable()
-	val updatedBy = long("updated_by").nullable()
-	val phoneNumber = varchar("phone_number", 255).nullable()
+	val id = long("ID").autoIncrement()
+	val name = varchar("NAME", 100)
+	val email = varchar("EMAIL", 200)
+	val age = integer("AGE")
+	val active = bool("ACTIVE").default(true)
+	val createdAt = timestamp("CREATED_AT").nullable()
+	val updatedAt = timestamp("UPDATED_AT").nullable()
+	val createdBy = long("CREATED_BY").nullable()
+	val updatedBy = long("UPDATED_BY").nullable()
+	val phoneNumber = varchar("PHONE_NUMBER", 255).nullable()
 
 	override val primaryKey = PrimaryKey(id)
 }
 
 object PostsTable : Table("posts") {
-	val id = long("id").autoIncrement()
-	val title = varchar("title", 255)
-	val content = text("content")
-	val userId = long("user_id").references(UsersTable.id)
-	val createdAt = timestamp("created_at").nullable()
-	val updatedAt = timestamp("updated_at").nullable()
-	val createdBy = long("created_by").nullable()
-	val updatedBy = long("updated_by").nullable()
+	val id = long("ID").autoIncrement()
+	val title = varchar("TITLE", 255)
+	val content = text("CONTENT")
+	val userId = long("USER_ID").references(UsersTable.id)
+	val createdAt = timestamp("CREATED_AT").nullable()
+	val updatedAt = timestamp("UPDATED_AT").nullable()
+	val createdBy = long("CREATED_BY").nullable()
+	val updatedBy = long("UPDATED_BY").nullable()
 	override val primaryKey = PrimaryKey(id)
 }
 
@@ -160,9 +162,9 @@ fun setupRepositories(): DataRepositoryConfiguration {
 	// Exposed Setup
 	val database = Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "org.h2.Driver")
 
-	// Run database migrations
-	val migrator = DatabaseMigrator(database)
-	migrator.migrate()
+	transaction(database) {
+		SchemaUtils.create(UsersTable, PostsTable)
+	}
 
 	config.registerExposedRepository(
 		UserRepository::class,
