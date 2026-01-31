@@ -43,10 +43,8 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		if (entity.id == null) {
 			// Insert new entity
 			val insertStatement = table.insert {
-				(entity as Auditable<Any>).createdAt = now
-				(entity as Auditable<Any>).updatedAt = now
-				(entity as Auditable<Any>).createdBy = currentUser
-				(entity as Auditable<Any>).updatedBy = currentUser
+				(entity as Entity<*>).createdAt = now
+				(entity as Entity<*>).updatedAt = now
 				fillStatementFromEntity(it, entity, excludeId = true)
 			}
 			// Return entity with generated ID and populated audit fields
@@ -54,8 +52,7 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 			setEntityId(entity, generatedId)
 		} else {
 			// Update existing entity
-			(entity as Auditable<Any>).updatedAt = now
-			(entity as Auditable<Any>).updatedBy = currentUser
+			(entity as Entity<*>).updatedAt = now
 			val updatedRows = table.update({ idColumn eq entity.id!! }) {
 				fillStatementFromEntity(it, entity, excludeId = true)
 			}
@@ -560,7 +557,12 @@ class ExposedDataProvider<T : Entity<ID>, ID>(
 		val constructor = entityClass.primaryConstructor
 			?: throw IllegalArgumentException("Entity ${"$"}{entityClass.simpleName} must have a primary constructor")
 
-		val idColumn = table.primaryKey?.columns?.firstOrNull() ?: table.columns.firstOrNull { it.name.equals("id", ignoreCase = true) } ?: return null
+		val idColumn = table.primaryKey?.columns?.firstOrNull() ?: table.columns.firstOrNull {
+			it.name.equals(
+				"id",
+				ignoreCase = true
+			)
+		} ?: return null
 
 		if (!row.fieldIndex.containsKey(idColumn) || row[idColumn] == null) {
 			return null

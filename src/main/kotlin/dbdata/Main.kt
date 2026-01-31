@@ -1,6 +1,5 @@
 package dbdata
 
-import dbdata.migration.DatabaseMigrator
 import dbdata.query.PageRequest
 import dbdata.query.Sort
 import org.jetbrains.exposed.v1.core.Table
@@ -26,7 +25,7 @@ class User(
 	var posts: List<Post> = emptyList()
 
 	override fun toString(): String {
-		return "User(id=$id, name='$name', email='$email', age=$age, active=$active, createdAt=$createdAt, updatedAt=$updatedAt, createdBy=$createdBy, updatedBy=$updatedBy, posts=${posts.map { it.id }})"
+		return "User(id=$id, name='$name', email='$email', age=$age, active=$active, createdAt=$createdAt, updatedAt=$updatedAt, posts=${posts.map { it.id }})"
 	}
 
 	override fun equals(other: Any?): Boolean {
@@ -48,16 +47,14 @@ class Post(
 	val content: String,
 	val userId: Long,
 	override var createdAt: Instant? = null,
-	override var updatedAt: Instant? = null,
-	override var createdBy: Long? = null,
-	override var updatedBy: Long? = null
+	override var updatedAt: Instant? = null
 ) : Entity<Long> {
 	@ManyToOne(fetch = FetchType.EAGER)
 	@JoinColumn(name = "USER_ID", referencedColumnName = "ID")
 	var user: User? = null
 
 	override fun toString(): String {
-		return "Post(id=$id, title='$title', content='$content', userId=$userId, user=${user?.id}, createdAt=$createdAt, updatedAt=$updatedAt, createdBy=$createdBy, updatedBy=$updatedBy)"
+		return "Post(id=$id, title='$title', content='$content', userId=$userId, user=${user?.id}, createdAt=$createdAt, updatedAt=$updatedAt)"
 	}
 
 	override fun equals(other: Any?): Boolean {
