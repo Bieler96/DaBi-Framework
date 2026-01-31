@@ -9,7 +9,6 @@ import com.mongodb.kotlin.client.coroutine.FindFlow
 import com.mongodb.kotlin.client.coroutine.MongoCollection
 import dbdata.Entity
 import dbdata.exception.EntityNotFoundException
-import dbdata.Auditable
 import dbdata.query.*
 import dbdata.query.AggregationFunction
 import kotlinx.coroutines.flow.firstOrNull

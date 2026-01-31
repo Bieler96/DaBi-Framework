@@ -20,8 +20,6 @@ class User(
 	val active: Boolean = true,
 	override var createdAt: Instant? = null,
 	override var updatedAt: Instant? = null,
-	override var createdBy: Long? = null,
-	override var updatedBy: Long? = null,
 	val phoneNumber: String? = null
 ) : Entity<Long> {
 	@OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
