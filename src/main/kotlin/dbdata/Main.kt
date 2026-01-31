@@ -2,7 +2,8 @@ package dbdata
 
 import dbdata.query.PageRequest
 import dbdata.query.Sort
-import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.dao.id.EntityID
+import org.jetbrains.exposed.v1.core.dao.id.LongIdTable
 import org.jetbrains.exposed.v1.javatime.timestamp
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
@@ -12,7 +13,7 @@ import java.time.Instant
 data class UserDto(val name: String, val email: String)
 
 class User(
-	override val id: Long? = null,
+	override val id: EntityID<Long>? = null,
 	val name: String,
 	val email: String,
 	val age: Int,
@@ -20,7 +21,7 @@ class User(
 	override var createdAt: Instant? = null,
 	override var updatedAt: Instant? = null,
 	val phoneNumber: String? = null
-) : Entity<Long> {
+) : Entity<EntityID<Long>> {
 	@OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
 	var posts: List<Post> = emptyList()
 
@@ -42,13 +43,13 @@ class User(
 }
 
 class Post(
-	override val id: Long? = null,
+	override val id: EntityID<Long>? = null,
 	val title: String,
 	val content: String,
-	val userId: Long,
+	val userId: EntityID<Long>,
 	override var createdAt: Instant? = null,
 	override var updatedAt: Instant? = null
-) : Entity<Long> {
+) : Entity<EntityID<Long>> {
 	@ManyToOne(fetch = FetchType.EAGER)
 	@JoinColumn(name = "USER_ID", referencedColumnName = "ID")
 	var user: User? = null
@@ -71,7 +72,7 @@ class Post(
 }
 
 @Repository
-interface UserRepository : CrudRepository<User, Long> {
+interface UserRepository : CrudRepository<User, EntityID<Long>> {
 	// Simple queries
 	suspend fun findByEmail(email: String): User?
 	suspend fun findByName(name: String): List<User>
@@ -119,13 +120,12 @@ interface UserRepository : CrudRepository<User, Long> {
 }
 
 @Repository
-interface PostRepository : CrudRepository<Post, Long> {
-	suspend fun findByUserId(userId: Long): List<Post>
+interface PostRepository : CrudRepository<Post, EntityID<Long>> {
+	suspend fun findByUserId(userId: EntityID<Long>): List<Post>
 	suspend fun findByTitleContaining(titlePart: String): List<Post>
 }
 
-object UsersTable : Table("users") {
-	val id = long("ID").autoIncrement()
+object UsersTable : LongIdTable("users") {
 	val name = varchar("NAME", 100)
 	val email = varchar("EMAIL", 200)
 	val age = integer("AGE")
@@ -135,20 +135,16 @@ object UsersTable : Table("users") {
 	val createdBy = long("CREATED_BY").nullable()
 	val updatedBy = long("UPDATED_BY").nullable()
 	val phoneNumber = varchar("PHONE_NUMBER", 255).nullable()
-
-	override val primaryKey = PrimaryKey(id)
 }
 
-object PostsTable : Table("posts") {
-	val id = long("ID").autoIncrement()
+object PostsTable : LongIdTable("posts") {
 	val title = varchar("TITLE", 255)
 	val content = text("CONTENT")
-	val userId = long("USER_ID").references(UsersTable.id)
+	val userId = reference("USER_ID", UsersTable)
 	val createdAt = timestamp("CREATED_AT").nullable()
 	val updatedAt = timestamp("UPDATED_AT").nullable()
 	val createdBy = long("CREATED_BY").nullable()
 	val updatedBy = long("UPDATED_BY").nullable()
-	override val primaryKey = PrimaryKey(id)
 }
 
 fun setupRepositories(): DataRepositoryConfiguration {

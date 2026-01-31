@@ -5,6 +5,7 @@ import dbdata.dataprovider.ExposedDataProvider
 import dbdata.dataprovider.MongoDataProvider
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.jdbc.Database
 import kotlin.reflect.KClass
 
@@ -13,11 +14,11 @@ class DataRepositoryConfiguration {
 	private val proxyFactory = RepositoryProxyFactory()
 	private val allExposedTables = mutableListOf<Table>()
 
-	fun <T : Any, E : Entity<ID>, ID> registerExposedRepository(
+	fun <T : Any, E : Entity<EntityID<ID>>, ID : Any> registerExposedRepository(
 		repositoryClass: KClass<T>,
 		table: Table,
 		entityClass: KClass<E>,
-		idColumn: Column<ID>,
+		idColumn: Column<EntityID<ID>>,
 		database: Database
 	) {
 		allExposedTables.add(table) // Add table to the list
